@@ -17,7 +17,7 @@ def parse(args)
             options[:ext] = ext
         end
     end
-    parse.parse!(args)
+    parser.parse!(args)
     mandatory = [:dir, :ext]
     missing = mandatory.select{|param| options[param].nil?}
     if not missing.empty?
@@ -25,5 +25,12 @@ def parse(args)
         puts parser
         exit
     end
+    options
 end
+
+options = parse(ARGV)
+Dir.glob("#{options[:dir]}/**/*.#{options[:ext]}").each do | file |
+    puts file
+end
+
 
