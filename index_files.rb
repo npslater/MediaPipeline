@@ -1,5 +1,6 @@
 require 'optparse'
 require 'aws-sdk'
+require 'Taglib'
 
 def parse(args)
 
@@ -28,9 +29,38 @@ def parse(args)
     options
 end
 
+def read_tag(file)
+    info = nil
+    TagLib::FileRef.open(file) do |fileref|
+        unless fileref.null?
+            tag = fileref.tag
+            info = {
+                :title => tag.title,   
+                :artist => tag.artist,  
+                :album => tag.album,   
+                :year => tag.year,    
+                :track => tag.track,   
+                :genre => tag.genre,   
+                :comment => tag.comment 
+            }
+        end
+    end
+    TagLib::MP4::File.open(file) do |mp4|
+        frame = mp4.tag.item_list_map['disk']
+        unless frame.nil?
+            puts frame.to_int
+        end
+        item_list_map = mp4.tag.item_list_map.to_a.each do | frame |
+            #puts "#{frame[0]}--#{frame[1]}"
+        end
+    end
+    info
+end
+
 options = parse(ARGV)
 Dir.glob("#{options[:dir]}/**/*.#{options[:ext]}").each do | file |
-    puts file
+    item = read_tag(file)
+    #puts item
 end
 
 
