@@ -1,6 +1,7 @@
 require 'optparse'
 require 'aws-sdk'
 require 'Taglib'
+require 'yaml'
 
 def parse(args)
 
@@ -9,6 +10,9 @@ def parse(args)
         opts.banner = "Usage: index_files.rb [options]"
         opts.separator ""
         opts.separator "Specific options:"
+        opts.on('-c', '--config CONFIG', 'The path to the config file') do | config |
+            options[:config] = config
+        end
         opts.on('-d', '--dir DIR',
                 'The directory to index') do | dir |
             options[:dir] = dir
@@ -19,7 +23,7 @@ def parse(args)
         end
     end
     parser.parse!(args)
-    mandatory = [:dir, :ext]
+    mandatory = [:dir, :ext, :config]
     missing = mandatory.select{|param| options[param].nil?}
     if not missing.empty?
         puts "Missing options: #{missing.join(', ')}"
@@ -48,19 +52,20 @@ def read_tag(file)
     TagLib::MP4::File.open(file) do |mp4|
         frame = mp4.tag.item_list_map['disk']
         unless frame.nil?
-            puts frame.to_int
+            info[:disk] = frame.to_int
         end
-        item_list_map = mp4.tag.item_list_map.to_a.each do | frame |
-            #puts "#{frame[0]}--#{frame[1]}"
-        end
+        cover_art_list = mp4.tag.item_list_map['covr'].to_cover_art_list
+        cover_art = cover_art_list.first
+        info[:cover_art] = cover_art.data
     end
     info
 end
 
 options = parse(ARGV)
+config = YAML.load(File.read(options[:config]))
 Dir.glob("#{options[:dir]}/**/*.#{options[:ext]}").each do | file |
-    item = read_tag(file)
-    #puts item
+    info = read_tag(file)
+    puts info
 end
 
 
