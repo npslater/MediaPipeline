@@ -1,0 +1,10 @@
+s3:
+  bucket:awsnslater_media_pipeline
+  archive_prefix:archive/
+  transcode_input_prefix:input/
+  transcode_output_prefix:output/
+  album_art_prefx:album_art/
+db:
+  file_table:media_file
+  archive_table:media_archive
+  title_table:media_title
