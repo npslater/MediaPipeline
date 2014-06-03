@@ -1,5 +1,5 @@
 s3:
-  bucket:awsnslater_media_pipeline
+  bucket:awsnslater-media-pipeline
   archive_prefix:archive/
   transcode_input_prefix:input/
   transcode_output_prefix:output/
