@@ -2,4 +2,9 @@ source 'https://rubygems.org'
 
 gem 'aws-sdk'
 gem 'taglib-ruby'
-gem 'rspec'
+
+group :development, :test do
+  gem 'rspec'
+  gem 'guard'
+  gem 'guard-rspec'
+end
