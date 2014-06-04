@@ -1,10 +1,12 @@
+aws:
+  region: us-west-2
 s3:
-  bucket:awsnslater-media-pipeline
-  archive_prefix:archive/
-  transcode_input_prefix:input/
-  transcode_output_prefix:output/
-  album_art_prefx:album_art/
+  bucket: nslater-media-pipeline
+  archive_prefix: archive/
+  transcode_input_prefix: input/
+  transcode_output_prefix: output/
+  album_art_prefx: album_art/
 db:
-  file_table:media_file
-  archive_table:media_archive
-  title_table:media_title
+  file_table: MEDIA_FILE
+  archive_table: media_archive
+  title_table: media_title

@@ -35,43 +35,40 @@
         "S3Bucket": {
             "Type": "AWS::S3::Bucket",
             "Properties": {
-                "BucketName": {"Ref": "S3BucketName"},
-                "LifecycleConfiguration": {
-                    "Rules": [
-                        { 
-                            "Prefix": {"Ref": "S3ArchivePrefix"},
-                            "Transition": {"StorageClass": "Glacier", "TransitionInDays": "30"}
-                        },
-                        {
-                            "Prefix": {"Ref": "S3InputPrefix"},
-                            "ExpirationInDays": "5"
-                        },
-                        {
-                            "Prefix": {"Ref": "S3OutputPrefix"},
-                            "ExpirationInDays": "30"
-                        },
-                        {
-                            "Prefix": {"Ref": "S3CoverArtPrefix"},
-                            "ExpirationInDays": "10"
-                        }
-                    ]
-                }
-
+                "BucketName": {"Ref": "S3BucketName"}
             }
         },
         "MediaFileTable": {
-            "TableName": {"Ref": "DDBFileTable"},
-            "ProvisionedThroughput": {"ReadCapacityUnits": "10", "WriteCapacityUnits": "10"},
-            "KeySchema": [
-                {
-                    "AttributeName": "LOCAL_FILE_PATH",
-                    "KeyType": "HASH"
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "TableName": {
+                    "Ref": "DDBFileTable"
                 },
-                {
-                    "AttributeName": "LOCAL_DIR",
-                    "KeyType": "RANGE"
-                }
-            ]
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "LOCAL_FILE_PATH",
+                        "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "LOCAL_DIR",
+                        "AttributeType": "S"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": "10",
+                    "WriteCapacityUnits": "10"
+                },
+                "KeySchema": [
+                    {
+                        "AttributeName": "LOCAL_FILE_PATH",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "LOCAL_DIR",
+                        "KeyType": "RANGE"
+                    }
+                ]
+            }
         }
     },
     "Outputs": {

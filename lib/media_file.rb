@@ -43,4 +43,8 @@ class MediaFile
     end
     @tag_data
   end
+
+  def save
+    yield(self)
+  end
 end
