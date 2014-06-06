@@ -1,6 +1,7 @@
 local:
-  archive_dir: /Users/nslater/archive
-  cover_art_dir: /Users/nslater/cover_art
+  archive_dir: /Users/nslater/temp/archive
+  cover_art_dir: /Users/nslater/temp/cover_art
+  sample_media_files_dir: /Users/nslater/src/ruby/MediaPipeline/media_files
 aws:
   region: us-west-2
 s3:

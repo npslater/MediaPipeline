@@ -7,6 +7,7 @@ class MediaFile
   def initialize(file)
     @file = file
     @tag_data = nil
+    @cover_art = nil
   end
 
   def read_tag(file)
@@ -32,7 +33,7 @@ class MediaFile
       end
       cover_art_list = mp4.tag.item_list_map['covr'].to_cover_art_list
       cover_art = cover_art_list.first
-      info[:cover_art] = cover_art.data
+      @cover_art = cover_art.data
     end
     info
   end
@@ -44,7 +45,18 @@ class MediaFile
     @tag_data
   end
 
-  def save
-    yield(self)
+  def cover_art
+    if @cover_art.nil?
+      @tag_data = read_tag(@file)
+    end
+    @cover_art
+  end
+
+  def save()
+    yield
+  end
+
+  def write_cover_art
+    yield
   end
 end

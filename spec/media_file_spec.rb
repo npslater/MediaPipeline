@@ -1,11 +1,10 @@
 require_relative 'spec_helper'
-require 'aws-sdk'
-require 'yaml'
 
 describe MediaFile do
 
   let!(:config) { YAML.load(File.read('./conf/config.yml'))}
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
+  let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
 
   it 'should have a getter for the file property' do
     mf = MediaFile.new('/this/is/the/path')
@@ -19,12 +18,17 @@ describe MediaFile do
 
   it 'should persist itself when save is called' do
     table = ddb.tables[config['db']['file_table']]
-    table.hash_key = [:LOCAL_FILE_PATH, :string]
-    table.range_key = [:LOCAL_DIR, :string]
-    Dir.glob('./media_files/**/*.m4a').each do | file |
+    table.hash_key = [:local_file_path, :string]
+    table.range_key = [:local_dir, :string]
+    Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a").each do | file |
       mf = MediaFile.new(file)
-      mf.save { table.items.create('LOCAL_FILE_PATH' =>File.absolute_path(file),
-                                   'LOCAL_DIR' => File.dirname(File.absolute_path(file)))}
+      mf.save do
+        item = table.items.create(
+            'local_file_path' =>File.absolute_path(mf.file),
+            'local_dir' => File.dirname(File.absolute_path(mf.file)))
+        #object =
+      end
+
     end
   end
 end
