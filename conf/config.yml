@@ -1,3 +1,6 @@
+local:
+  archive_dir: /Users/nslater/archive
+  cover_art_dir: /Users/nslater/cover_art
 aws:
   region: us-west-2
 s3:
@@ -7,6 +10,6 @@ s3:
   transcode_output_prefix: output/
   album_art_prefx: album_art/
 db:
-  file_table: MEDIA_FILE
+  file_table: media_file
   archive_table: media_archive
   title_table: media_title

@@ -1,4 +1,4 @@
-require 'spec_helper'
+require_relative 'spec_helper'
 require 'aws-sdk'
 require 'yaml'
 
@@ -18,14 +18,13 @@ describe MediaFile do
   end
 
   it 'should persist itself when save is called' do
-    puts config['aws']['region']
     table = ddb.tables[config['db']['file_table']]
     table.hash_key = [:LOCAL_FILE_PATH, :string]
     table.range_key = [:LOCAL_DIR, :string]
-    puts table.name
     Dir.glob('./media_files/**/*.m4a').each do | file |
       mf = MediaFile.new(file)
-      mf.save { table.items.create('LOCAL_FILE_PATH' =>File.absolute_path(file), 'LOCAL_DIR' => File.dirname(File.absolute_path(file)))}
+      mf.save { table.items.create('LOCAL_FILE_PATH' =>File.absolute_path(file),
+                                   'LOCAL_DIR' => File.dirname(File.absolute_path(file)))}
     end
   end
 end

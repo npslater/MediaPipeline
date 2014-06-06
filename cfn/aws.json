@@ -46,11 +46,11 @@
                 },
                 "AttributeDefinitions": [
                     {
-                        "AttributeName": "LOCAL_FILE_PATH",
+                        "AttributeName": "local_file_path",
                         "AttributeType": "S"
                     },
                     {
-                        "AttributeName": "LOCAL_DIR",
+                        "AttributeName": "local_dir",
                         "AttributeType": "S"
                     }
                 ],
@@ -60,12 +60,34 @@
                 },
                 "KeySchema": [
                     {
-                        "AttributeName": "LOCAL_FILE_PATH",
+                        "AttributeName": "local_file_path",
                         "KeyType": "HASH"
                     },
                     {
-                        "AttributeName": "LOCAL_DIR",
+                        "AttributeName": "local_dir",
                         "KeyType": "RANGE"
+                    }
+                ]
+            }
+        },
+        "MediaArchiveTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "TableName": { "Ref": "DDBArchiveTable"},
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "local_dir",
+                        "AttributeType": "S"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": "5",
+                    "WriteCapacityUnits": "5"
+                },
+                "KeySchema": [
+                    {
+                        "AttributeName": "local_dir",
+                        "KeyType": "HASH"
                     }
                 ]
             }
