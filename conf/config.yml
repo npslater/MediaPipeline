@@ -9,7 +9,7 @@ s3:
   archive_prefix: archive/
   transcode_input_prefix: input/
   transcode_output_prefix: output/
-  album_art_prefx: album_art/
+  cover_art_prefix: cover_art/
 db:
   file_table: media_file
   archive_table: media_archive

@@ -56,7 +56,7 @@ class MediaFile
     yield
   end
 
-  def write_cover_art
+  def write_cover_art()
     yield
   end
 end

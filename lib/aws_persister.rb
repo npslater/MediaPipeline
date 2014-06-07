@@ -1,3 +1,5 @@
+require 'securerandom'
+
 class AWSPersister
 
   def initialize(opts={})
@@ -16,6 +18,14 @@ class AWSPersister
     @table.range_key = [:local_dir, :string]
   end
 
+  def fetch_media_file_item(file)
+    if @table.nil?
+      init_table
+    end
+    item = @table.items.at(File.absolute_path(file), File.dirname(File.absolute_path(file)))
+    item
+  end
+
   def save_media_file(media_file)
     if @table.nil?
       init_table
@@ -24,5 +34,14 @@ class AWSPersister
     item = @table.items.create('local_file_path' =>File.absolute_path(media_file.file),
                                'local_dir' => File.dirname(File.absolute_path(media_file.file)))
     item.attributes.set(tag_data)
+  end
+
+  def write_cover_art(media_file)
+    cover_art_data = media_file.cover_art
+    object = @opts[:s3].buckets[@opts[:bucket_name]].objects["#{@opts[:cover_art_prefix]}#{SecureRandom.uuid}"]
+    object.write(cover_art_data)
+    item = fetch_media_file_item(media_file.file)
+    item.attributes.set('cover_art_s3_object' => "s3://#{@opts[:bucket_name]}/#{object.key}")
+    object
   end
 end

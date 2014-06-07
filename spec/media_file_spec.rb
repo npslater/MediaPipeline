@@ -16,19 +16,8 @@ describe MediaFile do
     expect(mf.tag_data).to be_an_instance_of(Hash)
   end
 
-  it 'should persist itself when save is called' do
-    table = ddb.tables[config['db']['file_table']]
-    table.hash_key = [:local_file_path, :string]
-    table.range_key = [:local_dir, :string]
-    Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a").each do | file |
-      mf = MediaFile.new(file)
-      mf.save do
-        item = table.items.create(
-            'local_file_path' =>File.absolute_path(mf.file),
-            'local_dir' => File.dirname(File.absolute_path(mf.file)))
-        #object =
-      end
-
-    end
+  it 'should return the binary data when cover_art is called' do
+    mf = MediaFile.new('./media_files/file1.m4a')
+    expect(mf.cover_art).to be_an_instance_of(String)
   end
 end
