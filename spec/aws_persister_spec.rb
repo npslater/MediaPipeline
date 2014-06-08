@@ -1,6 +1,7 @@
 require 'spec_helper'
 
 describe AWSPersister do
+  include AWSHelper
 
   let!(:config) { YAML.load(File.read('./conf/config.yml'))}
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
@@ -9,11 +10,20 @@ describe AWSPersister do
       persister = AWSPersister.new(
       :ddb => ddb,
       :s3 => s3,
-      :table_name => config['db']['file_table'],
+      :file_table_name => config['db']['file_table'],
+      :archive_table_name => config['db']['archive_table'],
       :bucket_name => config['s3']['bucket'],
       :archive_prefix => config['s3']['archive_prefix'],
       :cover_art_prefix => config['s3']['cover_art_prefix'])
   }
+
+  before(:all) do
+    cleanup_media_file_items
+    cleanup_cover_art_objects
+    cleanup_archive_objects
+    cleanup_local_archives
+    cleanup_archive_file_items
+  end
 
   it 'should return an ArgumentError if there are missing options' do
     begin
@@ -28,7 +38,8 @@ describe AWSPersister do
       persister = AWSPersister.new(
           :ddb => 'dynamoclient',
           :s3 => 's3client',
-          :table_name => 'table',
+          :file_table_name => 'table',
+          :archive_table_name => config['db']['archive_table'],
           :bucket_name => 'bucket',
           :archive_prefix => 'prefix',
           :cover_art_prefix => 'prefix')
@@ -60,7 +71,42 @@ describe AWSPersister do
   it 'should write the cover art to an S3 bucket' do
     file = Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a").first
     media_file = MediaFile.new(file)
-    object = persister.write_cover_art(media_file)
-    expect(s3.buckets[config['s3']['bucket']].objects[object.key].exists?).to eql(true)
+    key = persister.write_cover_art(media_file)
+    expect(s3.buckets[config['s3']['bucket']].objects[key].exists?).to eql(true)
+  end
+
+  it 'should write the archive parts to S3' do
+    collection = MediaFileCollection.new
+    collection.add_file(Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a").first)
+    collection.dirs.each do | k, v|
+      extract_path = "#{File.basename(File.dirname(k))}/#{File.basename(k)}"
+      archive = RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
+      v.each do | media_file |
+        archive.add_file(media_file.file)
+      end
+      parts = archive.archive
+      keys = persister.write_archive(parts)
+      keys.each do | key |
+        expect(s3.buckets[config['s3']['bucket']].objects[key].exists?).to eql(true)
+      end
+    end
+  end
+
+  it 'should save the archive items to dynamoDB' do
+    collection = MediaFileCollection.new
+    collection.add_file(Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a").first)
+    collection.dirs.each do | k, v|
+      extract_path = "#{File.basename(File.dirname(k))}/#{File.basename(k)}"
+      archive = RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
+      v.each do | media_file |
+        archive.add_file(media_file.file)
+      end
+      parts = archive.archive
+      keys = persister.write_archive(parts)
+      persister.save_archive(k, keys)
+    end
+    table = ddb.tables[config['db']['archive_table']]
+    table.hash_key = :local_dir, :string
+    expect(table.items.count).to be > 0
   end
 end
