@@ -7,6 +7,7 @@ require_relative '../lib/media_file'
 require_relative '../lib/aws_persister'
 require_relative '../lib/media_file_collection'
 require_relative '../lib/rar_archive'
+require_relative '../lib/concurrency_manager'
 
 class FileIndexer
 
@@ -69,6 +70,10 @@ class FileIndexer
         :archive_prefix => @config['s3']['archive_prefix'],
         :cover_art_prefix => @config['s3']['cover_art_prefix'])
 
+    concurrency_mgr = ConcurrencyManager.new(@config['s3']['concurrent_uploads'].to_i)
+    concurrency_mgr.logger = @logger
+    persister.concurrency_mgr = concurrency_mgr
+
     Dir.glob("#{options[:dir]}/**/*.#{options[:ext]}").each do | file |
       @logger.debug("Adding file #{file} to collection")
       collection.add_file(file)
@@ -77,11 +82,11 @@ class FileIndexer
       archive = RARArchive.new(@config['local']['rar_path'],
                                @config['local']['archive_dir'],
                                SecureRandom.uuid,
-                               "#{File.dirname(k)}/#{File.basename(k)}")
+                               "#{File.basename(File.dirname(k))}/#{File.basename(k)}")
       v.each do | media_file |
         media_file.save do
           persister.save_media_file(media_file)
-          @logger.info("Saved media file #{media_file} to table #{@config['db']['file_table']}")
+          @logger.info("Saved media file #{media_file.file} to table #{@config['db']['file_table']}")
         end
 
         media_file.write_cover_art do

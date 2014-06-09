@@ -2,6 +2,8 @@ require 'securerandom'
 
 class AWSPersister
 
+  attr_writer :concurrency_mgr
+
   def initialize(opts={})
     required = [:ddb, :s3, :file_table_name, :archive_table_name, :bucket_name, :archive_prefix, :cover_art_prefix]
     missing = required.select { |key| opts[key].nil? }
@@ -11,6 +13,7 @@ class AWSPersister
     @opts = opts
     @file_table = nil
     @archive_table = nil
+    @concurrency_mgr = nil
   end
 
   def init_file_table
@@ -44,7 +47,11 @@ class AWSPersister
   def write_cover_art(media_file)
     cover_art_data = media_file.cover_art
     object = @opts[:s3].buckets[@opts[:bucket_name]].objects["#{@opts[:cover_art_prefix]}#{SecureRandom.uuid}"]
-    object.write(cover_art_data)
+    if @concurrency_mgr.nil?
+      object.write(cover_art_data)
+    else
+      @concurrency_mgr.run_async {object.write(cover_art_data)}
+    end
     item = fetch_media_file_item(media_file.file)
     item.attributes.set('cover_art_s3_object' => "s3://#{@opts[:bucket_name]}/#{object.key}")
     object.key
@@ -57,7 +64,11 @@ class AWSPersister
       key = "#{@opts[:archive_prefix]}#{File.basename(part)}"
       keys.push(key)
       File.open(part, 'r') do | file |
-        @opts[:s3].buckets[@opts[:bucket_name]].objects[key].write(file)
+        if @concurrency_mgr.nil?
+          @opts[:s3].buckets[@opts[:bucket_name]].objects[key].write(file)
+        else
+          @concurrency_mgr.run_async { @opts[:s3].buckets[@opts[:bucket_name]].objects[key].write(file) }
+        end
       end
     end
     keys

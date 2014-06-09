@@ -7,8 +7,9 @@ describe FileIndexer do
   let!(:opts) {
     {
       :config => './conf/config.yml',
-      :dir => './media_files',
-      :ext => 'm4a'
+      :dir => config['local']['sample_media_files_dir'],
+      :ext => 'm4a',
+      :verbose => true
     }
   }
 

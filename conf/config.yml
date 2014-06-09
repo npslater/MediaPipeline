@@ -1,7 +1,7 @@
 local:
   archive_dir: /Users/nslater/temp/archive
   cover_art_dir: /Users/nslater/temp/cover_art
-  sample_media_files_dir: /Users/nslater/src/ruby/MediaPipeline/media_files
+  sample_media_files_dir: /Users/nslater/Music/converted
   rar_path: /usr/bin/rar
 aws:
   region: us-west-2
@@ -11,6 +11,7 @@ s3:
   transcode_input_prefix: input/
   transcode_output_prefix: output/
   cover_art_prefix: cover_art/
+  concurrent_uploads: 2
 db:
   file_table: media_file
   archive_table: media_archive
