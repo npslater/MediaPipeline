@@ -3,13 +3,15 @@ require 'spec_helper'
 describe AWSPersister do
   include AWSHelper
 
-  let!(:config) { ConfigFile.new('./conf/config.yml') }
+  let!(:config) { ConfigFile.new('./conf/config.yml').config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
+  let(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
   let!(:persister) {
       persister = AWSPersister.new(
       :ddb => ddb,
       :s3 => s3,
+      :sqs => sqs,
       :file_table_name => config['db']['file_table'],
       :archive_table_name => config['db']['archive_table'],
       :bucket_name => config['s3']['bucket'],
@@ -38,6 +40,7 @@ describe AWSPersister do
       persister = AWSPersister.new(
           :ddb => 'dynamoclient',
           :s3 => 's3client',
+          :sqs => 'sqs',
           :file_table_name => 'table',
           :archive_table_name => config['db']['archive_table'],
           :bucket_name => 'bucket',

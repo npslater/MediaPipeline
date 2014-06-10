@@ -5,7 +5,7 @@ class AWSPersister
   attr_writer :concurrency_mgr
 
   def initialize(opts={})
-    required = [:ddb, :s3, :file_table_name, :archive_table_name, :bucket_name, :archive_prefix, :cover_art_prefix]
+    required = [:ddb, :s3, :sqs, :file_table_name, :archive_table_name, :bucket_name, :archive_prefix, :cover_art_prefix]
     missing = required.select { |key| opts[key].nil? }
     if not missing.empty?
       raise ArgumentError, "Missing options #{missing}"
@@ -87,5 +87,9 @@ class AWSPersister
       attributes["part#{i}"] = "s3://#{@opts[:bucket_name]}/#{key}"
     end
    @archive_table.items.create(attributes)
+  end
+
+  def queue_transcode(archive_urls=[])
+    #not implemented.  I'm tired.  Will finish tomorrow.
   end
 end

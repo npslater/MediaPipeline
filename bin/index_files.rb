@@ -65,6 +65,7 @@ class FileIndexer
     persister = AWSPersister.new(
         :ddb => AWS::DynamoDB.new(region:@config['aws']['region']),
         :s3 => AWS::S3.new(region:@config['aws']['region']),
+        :sqs => AWS::SQS.new(region:@config['aws']['region']),
         :file_table_name => @config['db']['file_table'],
         :archive_table_name => @config['db']['archive_table'],
         :bucket_name => @config['s3']['bucket'],
