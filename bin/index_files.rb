@@ -8,6 +8,7 @@ require_relative '../lib/aws_persister'
 require_relative '../lib/media_file_collection'
 require_relative '../lib/rar_archive'
 require_relative '../lib/concurrency_manager'
+require_relative '../lib/config_file'
 
 class FileIndexer
 
@@ -15,7 +16,7 @@ class FileIndexer
 
   def initialize(options)
     @options = options
-    @config = YAML.load(File.read(@options[:config]))
+    @config = ConfigFile.new(@options[:config]).config
     @logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(@options[:log])
     @logger.level = @options[:verbose] ? Logger::DEBUG : Logger::INFO
   end

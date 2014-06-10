@@ -2,7 +2,7 @@ require_relative 'spec_helper'
 
 describe MediaFile do
 
-  let!(:config) { YAML.load(File.read('./conf/config.yml'))}
+  let!(:config) { ConfigFile.new('./conf/config.yml').config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
 

@@ -3,7 +3,7 @@ require 'spec_helper'
 describe FileIndexer do
   include AWSHelper
 
-  let!(:config) { YAML.load(File.read('./conf/config.yml'))}
+  let!(:config) { ConfigFile.new('./conf/config.yml').config }
   let!(:opts) {
     {
       :config => './conf/config.yml',

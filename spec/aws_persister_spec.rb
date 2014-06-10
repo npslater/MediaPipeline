@@ -3,7 +3,7 @@ require 'spec_helper'
 describe AWSPersister do
   include AWSHelper
 
-  let!(:config) { YAML.load(File.read('./conf/config.yml'))}
+  let!(:config) { ConfigFile.new('./conf/config.yml') }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:persister) {

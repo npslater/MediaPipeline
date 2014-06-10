@@ -24,7 +24,13 @@
         "DDBArchiveTable": {
             "Type": "String"
         },
-        "DDBTitleTable": {
+        "TranscodeQueueName": {
+            "Type": "String"
+        },
+        "ID3TagQueueName": {
+            "Type": "String"
+        },
+        "CloudPlayerUploadQueueName": {
             "Type": "String"
         }
     },
@@ -35,7 +41,20 @@
         "S3Bucket": {
             "Type": "AWS::S3::Bucket",
             "Properties": {
-                "BucketName": {"Ref": "S3BucketName"}
+                "BucketName": {"Ref": "S3BucketName"},
+                "LifecycleConfiguration": {
+                    "Rules":[
+                        {
+                            "Id": "RAR archive lifecycle",
+                            "Prefix": "archive/",
+                            "Status": "Enabled",
+                            "Transition": {
+                                "StorageClass": "Glacier",
+                                "TransitionInDays": "30"
+                            }
+                        }
+                    ]
+                }
             }
         },
         "MediaFileTable": {
@@ -90,6 +109,24 @@
                         "KeyType": "HASH"
                     }
                 ]
+            }
+        },
+        "TranscodeQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+                "QueueName": {"Ref": "TranscodeQueueName"}
+            }
+        },
+        "ID3TagQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+                "QueueName": {"Ref": "ID3TagQueueName"}
+            }
+        },
+        "CloudPlayerUploadQueue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+                "QueueName": {"Ref": "CloudPlayerUploadQueueName"}
             }
         }
     },

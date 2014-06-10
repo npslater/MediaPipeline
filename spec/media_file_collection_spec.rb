@@ -2,7 +2,7 @@ require 'spec_helper'
 
 describe MediaFileCollection do
 
-  let!(:config) { YAML.load(File.read('./conf/config.yml'))}
+  let!(:config) { ConfigFile.new('./conf/config.yml').config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
 
   it 'should return an instance of MediaFileCollection' do
