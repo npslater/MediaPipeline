@@ -6,12 +6,10 @@ describe AWSPersister do
   let!(:config) { ConfigFile.new('./conf/config.yml').config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
-  let(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
   let!(:persister) {
       persister = AWSPersister.new(
       :ddb => ddb,
       :s3 => s3,
-      :sqs => sqs,
       :file_table_name => config['db']['file_table'],
       :archive_table_name => config['db']['archive_table'],
       :bucket_name => config['s3']['bucket'],
@@ -40,7 +38,6 @@ describe AWSPersister do
       persister = AWSPersister.new(
           :ddb => 'dynamoclient',
           :s3 => 's3client',
-          :sqs => 'sqs',
           :file_table_name => 'table',
           :archive_table_name => config['db']['archive_table'],
           :bucket_name => 'bucket',
@@ -111,5 +108,10 @@ describe AWSPersister do
     table = ddb.tables[config['db']['archive_table']]
     table.hash_key = :local_dir, :string
     expect(table.items.count).to be > 0
+  end
+
+  it 'should queue up a transcode task' do
+    expect(false).to be_truthy
+
   end
 end
