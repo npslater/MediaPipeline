@@ -45,7 +45,7 @@ module MediaPipeline
     end
 
     def to_s
-      "archive_dir=#{archive_dir},archive_name=#{archive_name},extract_path=#{extract_path},num_files=#{@files.count}"
+      "[archive_dir=#{archive_dir},archive_name=#{archive_name},extract_path=#{extract_path},num_files=#{@files.count}]"
     end
   end
 end

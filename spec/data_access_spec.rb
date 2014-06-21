@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe MediaPipeline::AWS::DataAccess do
+describe MediaPipeline::DAL::AWS::DataAccess do
   include AWSHelper
 
   let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml').config }
@@ -8,8 +8,9 @@ describe MediaPipeline::AWS::DataAccess do
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
   let!(:data_access) {
-    MediaPipeline::AWS::DataAccess.new(
-      MediaPipeline::AWS::DataAccessContext.new.configure_s3(:s3 => s3,
+    MediaPipeline::DAL::AWS::DataAccess.new(
+      MediaPipeline::DAL::AWS::DataAccessContext.new
+                                               .configure_s3(:s3 => s3,
                                                              :bucket_name => config['s3']['bucket'],
                                                              :archive_prefix => config['s3']['archive_prefix'],
                                                              :cover_art_prefix => config['s3']['cover_art_prefix'])
@@ -31,17 +32,17 @@ describe MediaPipeline::AWS::DataAccess do
   end
 
   it 'should return an instance of DataAccess' do
-    data_access = MediaPipeline::AWS::DataAccess.new(MediaPipeline::AWS::DataAccessContext.new)
-    expect(data_access).to be_an_instance_of(MediaPipeline::AWS::DataAccess)
+    data_access = MediaPipeline::DAL::AWS::DataAccess.new(MediaPipeline::DAL::AWS::DataAccessContext.new)
+    expect(data_access).to be_an_instance_of(MediaPipeline::DAL::AWS::DataAccess)
   end
 
   it 'should return a hashtable of s3 options' do
-    data_access = MediaPipeline::AWS::DataAccess.new(MediaPipeline::AWS::DataAccessContext.new)
+    data_access = MediaPipeline::DAL::AWS::DataAccess.new(MediaPipeline::DAL::AWS::DataAccessContext.new)
     expect(data_access.context.s3_opts).to be_an_instance_of(Hash)
   end
 
   it 'should return a hashtable of ddb options' do
-    data_access = MediaPipeline::AWS::DataAccess.new(MediaPipeline::AWS::DataAccessContext.new)
+    data_access = MediaPipeline::DAL::AWS::DataAccess.new(MediaPipeline::DAL::AWS::DataAccessContext.new)
     expect(data_access.context.ddb_opts).to be_an_instance_of(Hash)
   end
 

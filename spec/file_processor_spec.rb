@@ -1,9 +1,9 @@
 require 'spec_helper'
 
-describe FileIndexer do
+describe MediaPipeline::FileProcessor do
   include AWSHelper
 
-  let!(:config) { ConfigFile.new('./conf/config.yml').config }
+  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml').config }
   let!(:opts) {
     {
       :config => './conf/config.yml',
@@ -21,11 +21,10 @@ describe FileIndexer do
     cleanup_archive_file_items
   end
 
-  it 'should index all the files in the given directory' do
-    indexer = FileIndexer.new(opts)
-    indexer.index
+  it 'should process all the files in the given directory' do
+    processor = MediaPipeline::FileProcessor.new(opts)
+    processor.process_files
     #not the ideal expectation, but if we get here without errors, it's a good indication the routine ran
     expect(true).to be_truthy
   end
-
 end

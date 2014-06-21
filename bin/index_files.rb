@@ -11,7 +11,7 @@ require_relative '../lib/rar_archive'
 require_relative '../lib/concurrency_manager'
 require_relative '../lib/config_file'
 
-class FileIndexer
+class FileProcessor
 
   attr_reader :options, :config
 
@@ -22,7 +22,7 @@ class FileIndexer
     @logger.level = @options[:verbose] ? Logger::DEBUG : Logger::INFO
   end
 
-  def FileIndexer.parse(args)
+  def FileProcessor.parse(args)
 
     options = {}
     parser = OptionParser.new do |opts|
@@ -108,7 +108,7 @@ end
 
 if __FILE__ == $0
   begin
-    indexer = FileIndexer.new(FileIndexer.parse(ARGV))
+    indexer = FileProcessor.new(FileProcessor.parse(ARGV))
     indexer.index
   rescue ArgumentError => e
     puts e.message
