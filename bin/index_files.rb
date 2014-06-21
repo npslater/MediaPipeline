@@ -4,7 +4,8 @@ require 'Taglib'
 require 'yaml'
 require 'logger'
 require_relative '../lib/media_file'
-require_relative '../lib/aws_persister'
+require_relative '../lib/aws/data_access'
+require_relative '../lib/aws/data_access_context'
 require_relative '../lib/media_file_collection'
 require_relative '../lib/rar_archive'
 require_relative '../lib/concurrency_manager'
@@ -62,18 +63,16 @@ class FileIndexer
   def index
     @logger.debug("Indexing using config #{@config}")
     collection = MediaFileCollection.new
-    persister = AWSPersister.new(
-        :ddb => AWS::DynamoDB.new(region:@config['aws']['region']),
-        :s3 => AWS::S3.new(region:@config['aws']['region']),
-        :file_table_name => @config['db']['file_table'],
-        :archive_table_name => @config['db']['archive_table'],
-        :bucket_name => @config['s3']['bucket'],
-        :archive_prefix => @config['s3']['archive_prefix'],
-        :cover_art_prefix => @config['s3']['cover_art_prefix'])
-
+    data_access = DataAccess.new(DataAccessContext.new.configure_s3(:s3 => AWS::S3.new(region:@config['aws']['region']),
+                                                                    :bucket_name => @config['s3']['bucket'],
+                                                                    :archive_prefix => @config['s3']['archive_prefix'],
+                                                                    :cover_art_prefix => @config['s3']['cover_art_prefix'])
+                                                      .configure_ddb(:ddb => AWS::DynamoDB.new(region:@config['aws']['region']),
+                                                                     :file_table_name => @config['db']['file_table'],
+                                                                     :archive_table_name => @config['db']['archive_table']))
     concurrency_mgr = ConcurrencyManager.new(@config['s3']['concurrent_uploads'].to_i)
     concurrency_mgr.logger = @logger
-    persister.concurrency_mgr = concurrency_mgr
+    data_access.concurrency_mgr = concurrency_mgr
 
     Dir.glob("#{options[:dir]}/**/*.#{options[:ext]}").each do | file |
       @logger.debug("Adding file #{file} to collection")
@@ -86,12 +85,12 @@ class FileIndexer
                                "#{File.basename(File.dirname(k))}/#{File.basename(k)}")
       v.each do | media_file |
         media_file.save do
-          persister.save_media_file(media_file)
+          data_access.save_media_file(media_file)
           @logger.info("Saved media file #{media_file.file} to table #{@config['db']['file_table']}")
         end
 
         media_file.write_cover_art do
-          key = persister.write_cover_art(media_file)
+          key = data_access.write_cover_art(media_file)
           @logger.info("Saved cover art with key #{key} to bucket #{@config['s3']['bucket']}")
         end
         archive.add_file(media_file.file)
@@ -99,9 +98,9 @@ class FileIndexer
       end
       parts = archive.archive
       @logger.info("Created archive of directory #{k} (#{parts.count} parts/#{parts.inject(0) {|result, part| result + File.size(part)}} total bytes)")
-      keys = persister.write_archive(parts)
+      keys = data_access.write_archive(parts)
       @logger.info("Saved archive parts with keys #{keys.join(',')} to bucket #{@config['s3']['bucket']}")
-      persister.save_archive(k, keys)
+      data_access.save_archive(k, keys)
       @logger.info("Saved archive dir #{k} to table #{@config['db']['archive_table']}")
     end
   end

@@ -1,11 +1,13 @@
 require 'yaml'
 
-class ConfigFile
+module MediaPipeline
+  class ConfigFile
 
-  attr_reader :config
+    attr_reader :config
 
-  def initialize(path)
-    context = ENV['ENVIRONMENT'].nil? ? 'production' : ENV['ENVIRONMENT']
-    @config = YAML.load(File.read(path))[context]
+    def initialize(path)
+      context = ENV['ENVIRONMENT'].nil? ? 'production' : ENV['ENVIRONMENT']
+      @config = YAML.load(File.read(path))[context]
+    end
   end
 end
