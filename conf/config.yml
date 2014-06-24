@@ -2,7 +2,7 @@ development:
   local:
     archive_dir: /Users/nslater/temp/archive
     cover_art_dir: /Users/nslater/temp/cover_art
-    sample_media_files_dir: /Users/nslater/temp/m4a
+    media_files_dir: /Users/nslater/temp/m4a
     rar_path: /usr/bin/rar
   aws:
     region: us-west-2
@@ -23,11 +23,13 @@ development:
     transcode_queue: transcode_dev
     id3tag_queue: id3tag_dev
     cloudplayer_upload_queue: cloudplayer_dev
+  schedule:
+    hours_in_day: -[22,23,0,1,2,3,4]
 production:
   local:
     archive_dir: /Users/slatern/temp/archive
     cover_art_dir: /Users/slatern/temp/cover_art
-    sample_media_files_dir: /Users/slatern/Music/m4a
+    media_files_dir: /Users/slatern/Music/m4a
     rar_path: /usr/local/bin/rar
   aws:
     region: us-west-2

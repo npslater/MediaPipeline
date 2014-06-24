@@ -4,16 +4,18 @@ require 'aws-sdk'
 module MediaPipeline
   class FileProcessor
     attr_reader :options, :config
+    attr_writer :scheduler
 
     def initialize(options)
       @options = options
       @config = ConfigFile.new(@options[:config]).config
       @logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(@options[:log])
       @logger.level = @options[:verbose] ? Logger::DEBUG : Logger::INFO
+      @scheduler = Scheduler.new([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23])  #default to run at all hours of the day
     end
 
     def process_files
-      @logger.debug("Indexing using config #{@config}")
+      @logger.debug("Processing using config #{@config}")
       collection = MediaFileCollection.new
       data_access = DAL::AWS::DataAccess.new(DAL::AWS::DataAccessContext.new
                                                         .configure_s3(:s3 => AWS::S3.new(region:@config['aws']['region']),
@@ -32,10 +34,11 @@ module MediaPipeline
         collection.add_file(file)
       end
       collection.dirs.each do | k,v |
+        next unless @scheduler.can_execute?
         archive =RARArchive.new(@config['local']['rar_path'],
-                                 @config['local']['archive_dir'],
-                                 SecureRandom.uuid,
-                                 "#{File.basename(File.dirname(k))}/#{File.basename(k)}")
+                                @config['local']['archive_dir'],
+                                SecureRandom.uuid,
+                                "#{File.basename(File.dirname(k))}/#{File.basename(k)}")
         v.each do | media_file |
           media_file.save do
             data_access.save_media_file(media_file)

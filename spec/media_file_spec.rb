@@ -5,7 +5,7 @@ describe MediaPipeline::MediaFile do
   let!(:config) { ConfigFile.new('./conf/config.yml').config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
-  let!(:file) { Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a").first }
+  let!(:file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first }
 
   it 'should have a getter for the file property' do
     mf = MediaPipeline::MediaFile.new('/this/is/the/path')

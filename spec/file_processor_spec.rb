@@ -7,7 +7,7 @@ describe MediaPipeline::FileProcessor do
   let!(:opts) {
     {
       :config => './conf/config.yml',
-      :dir => config['local']['sample_media_files_dir'],
+      :dir => config['local']['media_files_dir'],
       :ext => 'm4a',
       :verbose => true
     }
@@ -26,5 +26,12 @@ describe MediaPipeline::FileProcessor do
     processor.process_files
     #not the ideal expectation, but if we get here without errors, it's a good indication the routine ran
     expect(true).to be_truthy
+  end
+
+  it 'should not process any files in the given directory if it has not been scheduled' do
+    processor = MediaPipeline::FileProcessor.new(opts)
+    processor.scheduler = MediaPipeline::Scheduler.new([24]) #this will never match a valid hour value (0-23)
+    processor.process_files
+    expect(Dir.glob("#{config['local']['archive_dir']}/**/*.rar").count).to be == 0
   end
 end

@@ -17,7 +17,7 @@ describe MediaFileCollection do
 
   it 'should return a collection of files for each directory' do
     collection = MediaFileCollection.new
-    Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a").each do | file |
+    Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").each do | file |
       collection.add_file(file)
     end
     expect(collection.dirs.keys.length).to be > 0

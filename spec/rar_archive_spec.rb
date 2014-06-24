@@ -4,7 +4,7 @@ describe RARArchive do
   include AWSHelper
 
   let!(:config) { ConfigFile.new('./conf/config.yml').config }
-  let(:files) { Dir.glob("#{config['local']['sample_media_files_dir']}/**/*.m4a") }
+  let(:files) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a") }
 
   before(:all) do
     cleanup_local_archives
