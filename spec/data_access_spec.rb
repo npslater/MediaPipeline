@@ -7,6 +7,7 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
+  let!(:file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first }
   let!(:data_access) {
     MediaPipeline::DAL::AWS::DataAccess.new(
       MediaPipeline::DAL::AWS::DataAccessContext.new
@@ -29,6 +30,7 @@ describe MediaPipeline::DAL::AWS::DataAccess do
     cleanup_archive_objects
     cleanup_local_archives
     cleanup_archive_file_items
+    cleanup_transcode_queue
   end
 
   it 'should return an instance of DataAccess' do
@@ -47,7 +49,6 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should save a media file to dynamoDB' do
-    file = Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first
     media_file = MediaPipeline::MediaFile.new(file)
     data_access.save_media_file(media_file)
 
@@ -61,13 +62,11 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should fetch the dynamoDB item if there is one' do
-    file = Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first
     item = data_access.fetch_media_file_item(file)
     expect(item.attributes['local_file_path']).to be_instance_of(String)
   end
 
   it 'should write the cover art to an S3 bucket' do
-    file = Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first
     media_file = MediaPipeline::MediaFile.new(file)
     key = data_access.write_cover_art(media_file)
     expect(s3.buckets[config['s3']['bucket']].objects[key].exists?).to eql(true)
@@ -75,7 +74,7 @@ describe MediaPipeline::DAL::AWS::DataAccess do
 
   it 'should write the archive parts to S3' do
     collection = MediaPipeline::MediaFileCollection.new
-    collection.add_file(Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first)
+    collection.add_file(file)
     collection.dirs.each do | k, v|
       extract_path = "#{File.basename(File.dirname(k))}/#{File.basename(k)}"
       archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
@@ -92,7 +91,7 @@ describe MediaPipeline::DAL::AWS::DataAccess do
 
   it 'should save the archive items to dynamoDB' do
     collection = MediaPipeline::MediaFileCollection.new
-    collection.add_file(Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first)
+    collection.add_file(file)
     collection.dirs.each do | k, v|
       extract_path = "#{File.basename(File.dirname(k))}/#{File.basename(k)}"
       archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
@@ -109,7 +108,17 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should queue up a transcode task' do
-    parent_dir = File.dirname(Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first)
+    parent_dir = File.dirname(file)
     data_access.queue_transcode_task(parent_dir)
+
+    queue = sqs.queues.named(config['sqs']['transcode_queue'])
+    queue.poll(:initial_timeout=>2, :idle_timeout=>2) { |msg| expect(msg.body.include?(parent_dir)).to be_truthy }
+
+  end
+
+  it 'should fetch the archive item from dynamoDB' do
+    write_and_save_archive(file, config, data_access)
+    item = data_access.fetch_archive_item(File.dirname(file))
+    expect(item.attributes.count).to be > 0
   end
 end

@@ -78,4 +78,26 @@ module AWSHelper
       end
     end
   end
+
+  def cleanup_transcode_queue
+    config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
+    sqs = AWS::SQS.new(region:config['aws']['region'])
+    queue = sqs.queues.named(config['sqs']['transcode_queue'])
+    queue.poll(:idle_timeout=>2) { |msg| sqs.delete_message(queue, msg.handle) }
+  end
+
+  def write_and_save_archive(file, config, data_access)
+    collection = MediaPipeline::MediaFileCollection.new
+    collection.add_file(file)
+    collection.dirs.each do | k, v|
+      extract_path = "#{File.basename(File.dirname(k))}/#{File.basename(k)}"
+      archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
+      v.each do | media_file |
+        archive.add_file(media_file.file)
+      end
+      parts = archive.archive
+      keys = data_access.write_archive(parts)
+      data_access.save_archive(k, keys)
+    end
+  end
 end

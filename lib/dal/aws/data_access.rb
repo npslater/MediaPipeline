@@ -93,6 +93,13 @@ module MediaPipeline
           queue =  @context.sqs_opts[:sqs].queues.named(@context.sqs_opts[:transcode_queue_name])
           queue.send_message(message)
         end
+
+        def fetch_archive_item(archive_key)
+          if @archive_table.nil?
+            init_archive_table
+          end
+          @archive_table.items.at(archive_key)
+        end
       end
     end
   end
