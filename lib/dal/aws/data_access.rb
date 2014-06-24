@@ -88,8 +88,8 @@ module MediaPipeline
          @archive_table.items.create(attributes)
         end
 
-        def queue_transcode_task(archive_urls)
-          message = JSON.generate({ urls: archive_urls })
+        def queue_transcode_task(archive_key)
+          message = JSON.generate({ archive_key: archive_key })
           queue =  @context.sqs_opts[:sqs].queues.named(@context.sqs_opts[:transcode_queue_name])
           queue.send_message(message)
         end

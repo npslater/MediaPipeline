@@ -109,7 +109,7 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should queue up a transcode task' do
-    urls = %W(s3://#{config['s3']['archive_prefix']}#{SecureRandom.uuid}.rar s3://#{config['s3']['archive_prefix']}#{SecureRandom.uuid}.rar)
-    data_access.queue_transcode_task(urls)
+    parent_dir = File.dirname(Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first)
+    data_access.queue_transcode_task(parent_dir)
   end
 end
