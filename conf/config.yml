@@ -16,15 +16,36 @@ development:
   db:
     file_table: media_file_dev
     archive_table: media_archive_dev
-    title_table: media_title_dev
-  cfn:
-    stack_name: MediaPipelineDev
   sqs:
     transcode_queue: transcode_dev
     id3tag_queue: id3tag_dev
     cloudplayer_upload_queue: cloudplayer_dev
   schedule:
-    hours_in_day: -[22,23,0,1,2,3,4]
+    hours_in_day: -[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+test:
+  local:
+    archive_dir: /Users/nslater/temp/archive
+    cover_art_dir: /Users/nslater/temp/cover_art
+    media_files_dir: /Users/nslater/temp/m4a
+    rar_path: /usr/bin/rar
+  aws:
+    region: us-west-2
+  s3:
+    bucket: nslater-media-pipeline-test
+    archive_prefix: archive/
+    transcode_input_prefix: input/
+    transcode_output_prefix: output/
+    cover_art_prefix: cover_art/
+    concurrent_uploads: 2
+  db:
+    file_table: media_file_test
+    archive_table: media_archive_test
+  sqs:
+    transcode_queue: transcode_test
+    id3tag_queue: id3tag_test
+    cloudplayer_upload_queue: cloudplayer_test
+  schedule:
+    hours_in_day: -[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
 production:
   local:
     archive_dir: /Users/slatern/temp/archive
@@ -50,3 +71,5 @@ production:
     transcode_queue: transcode
     id3tag_queue: id3tag
     cloudplayer_upload_queue: cloudplayer
+  schedule:
+      hours_in_day: -[22,23,0,1,2,3,4]

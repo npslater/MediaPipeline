@@ -1,5 +1,9 @@
 #!/usr/bin/env ruby
 
+#these need to be replaced with the gem, but for testing right now, this will suffice
 require '../lib/cli'
+require '../lib/file_processor'
+require '../lib/pipeline_builder'
+require '../lib/config_file'
 
 MediaPipeline::CLI.start(ARGV)

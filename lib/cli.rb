@@ -4,7 +4,7 @@ module MediaPipeline
   class CLI < Thor
     class_option :config, :required=>false, :banner=>'CONFIG FILE', :desc=>'The path to the config file', :default=>'~/.mediapipeline/config'
     class_option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
-    class_option :verbose, :required=>false, :desc=>'Verbose logging'
+    class_option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
 
     desc 'process_files', 'Processes the files in the given directory'
     long_desc <<-LONGDESC
@@ -34,6 +34,19 @@ module MediaPipeline
     def process_files
       processor = MediaPipeline::FileProcessor.new(options)
       processor.process_files
+    end
+
+    desc 'create', 'Create a media pipeline'
+    option :name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :template, :required=>true, :banner=>'CFN_TEMPLATE', :desc=>'The path or URL to the CFN template'
+    long_desc <<-LONGDESC
+      Creates all the AWS resources required for the media pipeline.  Most resources are created using CloudFormation.
+
+      The ElasticTranscoder pipeline is created using SDK calls.
+    LONGDESC
+    def create
+      builder = MediaPipeline::PipelineBuilder.new(options)
+      builder.create
     end
   end
 end

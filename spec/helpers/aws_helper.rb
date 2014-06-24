@@ -50,7 +50,7 @@ module AWSHelper
     end
   end
 
-  def clean_up_stacks
+  def clean_up_stacks(stack_name)
     config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
     cfn = AWS::CloudFormation.new(region:config['aws']['region'])
 
@@ -63,7 +63,7 @@ module AWSHelper
       end
     end
     cfn.stacks.each do | stack |
-      if stack.name.eql?(rspec_stack_name(config['cfn']['stack_name']))
+      if stack.name.eql?(stack_name)
         stack.delete
         print 'Deleting stack...'
         begin
@@ -77,25 +77,5 @@ module AWSHelper
         end
       end
     end
-  end
-
-  def override_for_rspec_cfn_stack(config)
-    config['cfn']['stack_name'] = "#{rspec_stack_name(config['cfn']['stack_name'])}"
-    config['s3']['bucket'] = "#{config['s3']['bucket']}rspec"
-    config['s3']['archive_prefix'] = "#{config['s3']['archive_prefix']}rspec"
-    config['s3']['transcode_input_prefix'] = "#{config['s3']['transcode_input_prefix']}rspec"
-    config['s3']['transcode_output_prefix'] = "#{config['s3']['transcode_output_prefix']}rspec"
-    config['s3']['cover_art_prefix'] = "#{config['s3']['cover_art_prefix']}rspec"
-    config['db']['file_table'] = "#{config['db']['file_table']}rspec"
-    config['db']['archive_table'] = "#{config['db']['archive_table']}rspec"
-    config['sqs']['transcode_queue'] = "#{config['sqs']['transcode_queue']}rspec"
-    config['sqs']['id3tag_queue'] = "#{config['sqs']['id3tag_queue']}rspec"
-    config['sqs']['cloudplayer_upload_queue'] = "#{config['sqs']['cloudplayer_upload_queue']}rspec"
-    config
-  end
-
-  def rspec_stack_name(stack_name)
-    #change the stack name so it doesn't interfere with the stack required by the other tests
-    "#{stack_name}rspec"
   end
 end
