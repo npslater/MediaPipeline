@@ -8,7 +8,7 @@ describe MediaPipeline::PipelineBuilder do
 
   before(:all) do
     ENV['ENVIRONMENT'] = 'test'
-    clean_up_stacks('RSpecPipeline')
+    cleanup_stacks('RSpecPipeline')
   end
 
   it 'should create the pipeline' do

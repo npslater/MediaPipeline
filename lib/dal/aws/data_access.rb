@@ -1,4 +1,5 @@
 require 'securerandom'
+require 'uri'
 
 module MediaPipeline
   module DAL
@@ -94,11 +95,25 @@ module MediaPipeline
           queue.send_message(message)
         end
 
-        def fetch_archive_item(archive_key)
+        def fetch_archive_urls(archive_key)
           if @archive_table.nil?
             init_archive_table
           end
-          @archive_table.items.at(archive_key)
+          item = @archive_table.items.at(archive_key)
+          item.attributes.to_hash.select { |attr| attr.include?('part')}.values
+        end
+
+        def read_archive_object(url, download_dir)
+          uri = URI(url)
+          bucket = uri.host
+          key = uri.path
+          file = "#{download_dir}/#{File.basename(key)}"
+          object = @context.s3_opts[:s3].buckets[bucket].objects[key]
+          File.open(file, 'wb') do | file |
+            object.read do | chunk |
+              file.write(chunk)
+            end
+          end
         end
       end
     end

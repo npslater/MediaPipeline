@@ -1,5 +1,18 @@
 require 'spec_helper'
 
+def write_archive_parts(config, file)
+  extract_path = "#{File.basename(File.dirname(file))}/#{File.basename(file)}"
+  archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
+  archive.add_file(file)
+  parts = archive.archive
+  data_access.write_archive(parts)
+end
+
+def save_archive(archive_key, config, file)
+  keys = write_archive_parts(config, file)
+  data_access.save_archive(archive_key, keys)
+end
+
 describe MediaPipeline::DAL::AWS::DataAccess do
   include AWSHelper
 
@@ -8,6 +21,7 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
   let!(:file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first }
+  let!(:archive_key) { File.dirname(file) }
   let!(:data_access) {
     MediaPipeline::DAL::AWS::DataAccess.new(
       MediaPipeline::DAL::AWS::DataAccessContext.new
@@ -73,52 +87,37 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should write the archive parts to S3' do
-    collection = MediaPipeline::MediaFileCollection.new
-    collection.add_file(file)
-    collection.dirs.each do | k, v|
-      extract_path = "#{File.basename(File.dirname(k))}/#{File.basename(k)}"
-      archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
-      v.each do | media_file |
-        archive.add_file(media_file.file)
-      end
-      parts = archive.archive
-      keys = data_access.write_archive(parts)
+      keys = write_archive_parts(config, file)
       keys.each do | key |
         expect(s3.buckets[config['s3']['bucket']].objects[key].exists?).to eql(true)
       end
-    end
   end
 
   it 'should save the archive items to dynamoDB' do
-    collection = MediaPipeline::MediaFileCollection.new
-    collection.add_file(file)
-    collection.dirs.each do | k, v|
-      extract_path = "#{File.basename(File.dirname(k))}/#{File.basename(k)}"
-      archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
-      v.each do | media_file |
-        archive.add_file(media_file.file)
-      end
-      parts = archive.archive
-      keys = data_access.write_archive(parts)
-      data_access.save_archive(k, keys)
-    end
+    save_archive(archive_key, config, file)
     table = ddb.tables[config['db']['archive_table']]
     table.hash_key = :local_dir, :string
     expect(table.items.count).to be > 0
   end
 
   it 'should queue up a transcode task' do
-    parent_dir = File.dirname(file)
-    data_access.queue_transcode_task(parent_dir)
-
+    data_access.queue_transcode_task(archive_key)
     queue = sqs.queues.named(config['sqs']['transcode_queue'])
-    queue.poll(:initial_timeout=>2, :idle_timeout=>2) { |msg| expect(msg.body.include?(parent_dir)).to be_truthy }
+    queue.poll(:initial_timeout=>2, :idle_timeout=>2) { |msg| expect(msg.body.include?(archive_key)).to be_truthy }
 
   end
 
-  it 'should fetch the archive item from dynamoDB' do
-    write_and_save_archive(file, config, data_access)
-    item = data_access.fetch_archive_item(File.dirname(file))
-    expect(item.attributes.count).to be > 0
+  it 'should fetch the archive urls from dynamoDB' do
+    save_archive(archive_key, config, file)
+    urls = data_access.fetch_archive_urls(archive_key)
+    expect(urls.count).to be > 0
+  end
+
+  it 'should read the archive from S3 and write it to disk' do
+    save_archive(archive_key, config, file)
+    urls = data_access.fetch_archive_urls(archive_key)
+    urls.each do | url |
+      data_access.read_archive_object(url, config['local']['download_dir'])
+    end
   end
 end
