@@ -106,7 +106,7 @@ module MediaPipeline
         def read_archive_object(url, download_dir)
           uri = URI(url)
           bucket = uri.host
-          key = uri.path
+          key = "#{File.basename(File.dirname(uri.path))}/#{File.basename(uri.path)}"
           file = "#{download_dir}/#{File.basename(key)}"
           object = @context.s3_opts[:s3].buckets[bucket].objects[key]
           File.open(file, 'wb') do | file |
