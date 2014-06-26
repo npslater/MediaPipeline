@@ -11,11 +11,13 @@ module MediaPipeline
           @sqs_opts = {}
         end
 
-        def configure_s3(s3:nil, bucket_name:nil, archive_prefix:nil, cover_art_prefix:nil)
+        def configure_s3(s3:nil, bucket_name:nil, archive_prefix:nil, cover_art_prefix:nil, transcode_input_prefix:nil, transcode_output_prefix:nil)
           @s3_opts[:s3] = s3
           @s3_opts[:bucket_name] = bucket_name
           @s3_opts[:archive_prefix] = archive_prefix
           @s3_opts[:cover_art_prefix] = cover_art_prefix
+          @s3_opts[:transcode_input_prefix] = transcode_input_prefix
+          @s3_opts[:transcode_output_prefix] = transcode_output_prefix
           self
         end
 

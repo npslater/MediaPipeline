@@ -70,7 +70,7 @@ class FileProcessor
                                                       .configure_ddb(:ddb => AWS::DynamoDB.new(region:@config['aws']['region']),
                                                                      :file_table_name => @config['db']['file_table'],
                                                                      :archive_table_name => @config['db']['archive_table']))
-    concurrency_mgr = ConcurrencyManager.new(@config['s3']['concurrent_uploads'].to_i)
+    concurrency_mgr = ConcurrencyManager.new(@config['s3']['concurrent_connections'].to_i)
     concurrency_mgr.logger = @logger
     data_access.concurrency_mgr = concurrency_mgr
 

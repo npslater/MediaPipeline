@@ -1,20 +1,9 @@
 require 'spec_helper'
 
-def write_archive_parts(config, file)
-  extract_path = "#{File.basename(File.dirname(file))}/#{File.basename(file)}"
-  archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
-  archive.add_file(file)
-  parts = archive.archive
-  data_access.write_archive(parts)
-end
 
-def save_archive(archive_key, config, file)
-  keys = write_archive_parts(config, file)
-  data_access.save_archive(archive_key, keys)
-end
 
 describe MediaPipeline::DAL::AWS::DataAccess do
-  include AWSHelper
+  include AWSHelper, ArchiveHelper
 
   let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml').config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
@@ -28,7 +17,9 @@ describe MediaPipeline::DAL::AWS::DataAccess do
                                                .configure_s3(:s3 => s3,
                                                              :bucket_name => config['s3']['bucket'],
                                                              :archive_prefix => config['s3']['archive_prefix'],
-                                                             :cover_art_prefix => config['s3']['cover_art_prefix'])
+                                                             :cover_art_prefix => config['s3']['cover_art_prefix'],
+                                                             :transcode_input_prefix => config['s3']['transcode_input_prefix'],
+                                                             :transcode_output_prefix => config['s3']['transcode_output_prefix'])
                                                .configure_ddb(:ddb => ddb,
                                                               :file_table_name => config['db']['file_table'],
                                                               :archive_table_name => config['db']['archive_table'])
@@ -45,6 +36,8 @@ describe MediaPipeline::DAL::AWS::DataAccess do
     cleanup_local_archives
     cleanup_archive_file_items
     cleanup_transcode_queue
+    cleanup_transcode_input_objects
+    cleanup_transcode_output_objects
   end
 
   it 'should return an instance of DataAccess' do
@@ -87,14 +80,14 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should write the archive parts to S3' do
-      keys = write_archive_parts(config, file)
+      keys = write_archive_parts(config, file, data_access)
       keys.each do | key |
         expect(s3.buckets[config['s3']['bucket']].objects[key].exists?).to eql(true)
       end
   end
 
   it 'should save the archive items to dynamoDB' do
-    save_archive(archive_key, config, file)
+    save_archive(archive_key, config, file, data_access)
     table = ddb.tables[config['db']['archive_table']]
     table.hash_key = :local_dir, :string
     expect(table.items.count).to be > 0
@@ -108,16 +101,23 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should fetch the archive urls from dynamoDB' do
-    save_archive(archive_key, config, file)
+    save_archive(archive_key, config, file, data_access)
     urls = data_access.fetch_archive_urls(archive_key)
     expect(urls.count).to be > 0
   end
 
   it 'should read the archive from S3 and write it to disk' do
-    save_archive(archive_key, config, file)
+    save_archive(archive_key, config, file, data_access)
     urls = data_access.fetch_archive_urls(archive_key)
     urls.each do | url |
       data_access.read_archive_object(url, config['local']['download_dir'])
+    end
+  end
+
+  it 'should write an transcoder input file to S3' do
+    keys = data_access.write_transcoder_input([file])
+    keys.each do | key |
+      expect(s3.buckets[config['s3']['bucket']].objects[key].exists?).to be_truthy
     end
   end
 end

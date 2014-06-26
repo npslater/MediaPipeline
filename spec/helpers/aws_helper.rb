@@ -13,24 +13,33 @@ module AWSHelper
     end
   end
 
-  def cleanup_cover_art_objects
-    config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
+  def cleanup_objects(config, prefix)
     s3 = AWS::S3.new(region:config['aws']['region'])
     s3.buckets[config['s3']['bucket']].objects.each do | object |
-      if object.key.include?(config['s3']['cover_art_prefix'])
+      if object.key.include?(prefix)
         object.delete
       end
     end
   end
 
+  def cleanup_cover_art_objects
+    config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
+    cleanup_objects(config, config['s3']['cover_art_prefix'])
+  end
+
   def cleanup_archive_objects
     config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
-    s3 = AWS::S3.new(region:config['aws']['region'])
-    s3.buckets[config['s3']['bucket']].objects.each do | object |
-      if object.key.include?(config['s3']['archive_prefix'])
-        object.delete
-      end
-    end
+    cleanup_objects(config, config['s3']['archive_prefix'])
+  end
+
+  def cleanup_transcode_input_objects
+    config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
+    cleanup_objects(config, config['s3']['transcode_input_prefix'])
+  end
+
+  def cleanup_transcode_output_objects
+    config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
+    cleanup_objects(config, config['s3']['transcode_output_prefix'])
   end
 
   def cleanup_local_archives

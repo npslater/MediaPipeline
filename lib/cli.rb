@@ -26,7 +26,7 @@ module MediaPipeline
 
       8. For each uploaded RAR archive, create a record in the DynamoDB table specified by the db:archive_table key in the config file.  The hash key of the record is the local directory path containing the files included in the archive, and the attributes are the S3 urls to each piece of the RAR archive.
 
-      To make the S3 uploads more efficient, the number of concurrent uploads can be specified using the s3:concurrent_uploads key in the config file.
+      To make the S3 uploads more efficient, the number of concurrent uploads can be specified using the s3:concurrent_connections key in the config file.
     LONGDESC
 
     option :dir, :required=>true, :banner=>'DIR', :desc=>'The directory to index'

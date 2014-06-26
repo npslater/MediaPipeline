@@ -1,10 +1,10 @@
 development:
   local:
-    archive_dir: /Users/nslater/temp/archive
-    download_dir: /Users/nslater/temp/download
-    cover_art_dir: /Users/nslater/temp/cover_art
-    media_files_dir: /Users/nslater/temp/m4a
-    rar_path: /usr/bin/rar
+    archive_dir: /Users/slatern/temp/archive
+    download_dir: /Users/slatern/temp/download
+    cover_art_dir: /Users/slatern/temp/cover_art
+    media_files_dir: /Users/slatern/temp/m4a
+    rar_path: /usr/local/bin/rar
   aws:
     region: us-west-2
   s3:
@@ -13,7 +13,7 @@ development:
     transcode_input_prefix: input/
     transcode_output_prefix: output/
     cover_art_prefix: cover_art/
-    concurrent_uploads: 2
+    concurrent_connections: 2
   db:
     file_table: media_file_dev
     archive_table: media_archive_dev
@@ -37,7 +37,7 @@ test:
     transcode_input_prefix: input/
     transcode_output_prefix: output/
     cover_art_prefix: cover_art/
-    concurrent_uploads: 2
+    concurrent_connections: 2
   db:
     file_table: media_file_test
     archive_table: media_archive_test
@@ -61,7 +61,7 @@ production:
     transcode_input_prefix: input/
     transcode_output_prefix: output/
     cover_art_prefix: cover_art/
-    concurrent_uploads: 2
+    concurrent_connections: 2
   db:
     file_table: media_file
     archive_table: media_archive

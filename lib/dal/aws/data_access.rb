@@ -114,6 +114,23 @@ module MediaPipeline
               file.write(chunk)
             end
           end
+          file
+        end
+
+        def write_transcoder_input(input_files=[])
+          keys = []
+          input_files.each do | input |
+            key = "#{@context.s3_opts[:transcode_input_prefix]}#{File.basename(input)}"
+            keys.push(key)
+            File.open(input, 'r') do | file |
+              if @concurrency_mgr.nil?
+                @context.s3_opts[:s3].buckets[@context.s3_opts[:bucket_name]].objects[key].write(file)
+              else
+                @concurrency_mgr.run_async { @context.s3_opts[:s3].buckets[@context.s3_opts[:bucket_name]].objects[key].write(file) }
+              end
+            end
+          end
+          keys
         end
       end
     end

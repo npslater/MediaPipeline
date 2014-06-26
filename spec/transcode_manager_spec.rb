@@ -1,10 +1,13 @@
 require 'spec_helper'
 
 describe MediaPipeline::TranscodeManager do
-  include AWSHelper
+  include AWSHelper, ArchiveHelper
 
   let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml').config }
   let!(:file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first }
+  let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
+  let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
+  let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
   let!(:archive_key) { File.dirname(file) }
   let!(:data_access) {
     MediaPipeline::DAL::AWS::DataAccess.new(
@@ -12,7 +15,9 @@ describe MediaPipeline::TranscodeManager do
         .configure_s3(:s3 => s3,
                       :bucket_name => config['s3']['bucket'],
                       :archive_prefix => config['s3']['archive_prefix'],
-                      :cover_art_prefix => config['s3']['cover_art_prefix'])
+                      :cover_art_prefix => config['s3']['cover_art_prefix'],
+                      :transcode_input_prefix => config['s3']['transcode_input_prefix'],
+                      :transcode_output_prefix => config['s3']['transcode_output_prefix'])
         .configure_ddb(:ddb => ddb,
                        :file_table_name => config['db']['file_table'],
                        :archive_table_name => config['db']['archive_table'])
@@ -21,24 +26,23 @@ describe MediaPipeline::TranscodeManager do
                        :id3_tag_queue_name =>config['sqs']['id3tag_queue'],
                        :cloudplayer_upload_queue_name =>config['sqs']['cloudplayer_upload_queue']))
   }
+  let!(:transcode_mgr) { MediaPipeline::TranscodeManager.new(config:config, logger:Logger.new(STDOUT), data_access:data_access, file_extension:'m4a') }
+
+  before(:all) do
+    cleanup_archive_objects
+    cleanup_archive_file_items
+    cleanup_transcode_input_objects
+    cleanup_transcode_output_objects
+  end
 
   it 'should return an instance of TranscodeManager' do
-    transcode_mgr = MediaPipeline::TranscodeManager.new({:verbose=>true, :config=>'./conf/config.yml'})
+    transcode_mgr = MediaPipeline::TranscodeManager.new
     expect(transcode_mgr).to be_an_instance_of(MediaPipeline::TranscodeManager)
   end
 
-  def write_and_save_archive(archive_key)
-    extract_path = "#{File.basename(File.dirname(file))}/#{File.basename(file)}"
-    archive = MediaPipeline::RARArchive.new(config['local']['rar_path'], config['local']['archive_dir'], SecureRandom.uuid, extract_path)
-
-    parts = archive.archive
-    keys = data_access.write_archive(parts)
-    data_access.save_archive(archive_key, keys)
-  end
-
   it 'should prepare the input files to the transcoding pipeline job' do
-    write_and_save_archive(archive_key)
-
+    save_archive(archive_key, config, file, data_access)
+    transcode_mgr.prepare_input(archive_key)
   end
 
 end
