@@ -7,7 +7,7 @@ module MediaPipeline
 
   class TranscodeManager
 
-    def initialize(config:nil, logger:Logger.new(STDOUT), data_access:nil, file_extension:nil)
+    def initialize(config, data_access, logger:Logger.new(STDOUT), file_extension:'m4a')
       @config = config
       @logger = logger
       @data_access = data_access
@@ -15,40 +15,42 @@ module MediaPipeline
     end
 
     def prepare_input(archive_key)
-      files = []
+
       urls = @data_access.fetch_archive_urls(archive_key)
-      @logger.info("Fetched archive URLs for #{archive_key}: #{urls}")
+      @logger.info(self.class) { LogMessage.new('data_access.fetch_archive_urls', {key:archive_key,urls:urls}, 'Fetched archive URLs from DynamoDB').to_s}
+
       dir = File.join(@config['local']['download_dir'], SecureRandom.uuid)
       Dir.mkdir(dir)
-      @logger.info("Created directory to extract archive: #{dir}")
+      @logger.info(self.class) { LogMessage.new('extract_archive.create_dir', {directory:dir}, 'Created directory to extract archive').to_s }
+
+      archive = nil
       urls.each do | url |
         file = @data_access.read_archive_object(url, dir)
-        files.push(file)
-        @logger.info("Downloaded archive file: #{file}")
+        archive = file unless archive
+        @logger.info(self.class) { LogMessage.new('data_access.read_archive_object', {url:url, directory:dir, file:file},'Downloaded archive file from S3').to_s}
       end
-      cmd = "#{@config['local']['rar_path']} x #{files[0]}"
-      @logger.debug("Extracting archive with command #{cmd}")
+
+      cmd = "#{@config['local']['rar_path']} x #{archive}"
+      @logger.info(self.class) { LogMessage.new('rar.extract', {command:cmd}, 'Extracting RAR archive').to_s}
       Dir.chdir(dir) do
         Open3.popen3(cmd) {|stdin, stdout, stderr, wait_thr|
           pid = wait_thr.pid
-          @logger.info("rar process #{pid} started")
+          @logger.debug(self.class) {LogMessage.new('process.start', {pid:pid}, 'Process started').to_s}
 
           ret = wait_thr.value
           errors = stderr.read
-          out = stdout.read
 
-          @logger.info("rar process #{pid} finished with status \"#{ret}\"")
+          @logger.debug(self.class) {LogMessage.new('process.end', {pid:pid, status:ret}, 'Process finished'.to_s)}
           if errors.length > 0
-            @logger.error(errors)
+            @logger.error(self.class) { LogMessage.new('process.stderr', {errors:errors}, 'Process errors').to_s }
           end
-          @logger.debug(out)
         }
       end
-      #files = Dir.glob("#{dir}/**/*.#{@options[:ext]}")
-      #@data_access.write_transcoder_input(files)
-      #download the archives pieces from s3
-      #unpack the archive
-      #upload the extracted files to the transcode input bucket
+
+      filter = "#{dir}/**/*.#{@file_extension}"
+      files = Dir.glob(filter)
+      @data_access.write_transcoder_input(files)
+      @logger.info(self.class) {LogMessage.new('data_access.write_transcoder_input', {files:files}, 'Wrote transcoder input files to S3').to_s}
       #for each file, submit a job to the ElasticTranscoder pipeline
     end
 

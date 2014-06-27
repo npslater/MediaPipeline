@@ -14,19 +14,19 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   let!(:data_access) {
     MediaPipeline::DAL::AWS::DataAccess.new(
       MediaPipeline::DAL::AWS::DataAccessContext.new
-                                               .configure_s3(:s3 => s3,
-                                                             :bucket_name => config['s3']['bucket'],
+                                               .configure_s3(s3,
+                                                             config['s3']['bucket'],
                                                              :archive_prefix => config['s3']['archive_prefix'],
                                                              :cover_art_prefix => config['s3']['cover_art_prefix'],
                                                              :transcode_input_prefix => config['s3']['transcode_input_prefix'],
                                                              :transcode_output_prefix => config['s3']['transcode_output_prefix'])
-                                               .configure_ddb(:ddb => ddb,
-                                                              :file_table_name => config['db']['file_table'],
-                                                              :archive_table_name => config['db']['archive_table'])
-                                               .configure_sqs(:sqs => sqs,
-                                                              :transcode_queue_name => config['sqs']['transcode_queue'],
-                                                              :id3_tag_queue_name =>config['sqs']['id3tag_queue'],
-                                                              :cloudplayer_upload_queue_name =>config['sqs']['cloudplayer_upload_queue']))
+                                               .configure_ddb(ddb,
+                                                              config['db']['file_table'],
+                                                              config['db']['archive_table'])
+                                               .configure_sqs(sqs,
+                                                              config['sqs']['transcode_queue'],
+                                                              config['sqs']['id3tag_queue'],
+                                                              config['sqs']['cloudplayer_upload_queue']))
   }
 
   before(:all) do

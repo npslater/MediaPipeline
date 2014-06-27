@@ -42,13 +42,6 @@ module AWSHelper
     cleanup_objects(config, config['s3']['transcode_output_prefix'])
   end
 
-  def cleanup_local_archives
-    config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
-    Dir.glob("#{config['local']['archive_dir']}/*.rar").each do | file |
-      File.delete(file)
-    end
-  end
-
   def cleanup_archive_file_items
     config = MediaPipeline::ConfigFile.new('./conf/config.yml').config
     ddb = AWS::DynamoDB.new(region:config['aws']['region'])

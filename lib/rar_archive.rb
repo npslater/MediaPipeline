@@ -1,4 +1,5 @@
 require 'open3'
+require 'json'
 
 module MediaPipeline
   class RARArchive
@@ -44,8 +45,13 @@ module MediaPipeline
       Dir.glob("#{@archive_dir}/#{@archive_name}*.rar")
     end
 
-    def to_s
-      "[archive_dir=#{archive_dir},archive_name=#{archive_name},extract_path=#{extract_path},num_files=#{@files.count}]"
+    def to_json
+      JSON.generate({archive_dir:archive_dir,archive_name:archive_name,extract_path:extract_path,num_files:files.count})
     end
+
+    def to_s
+      to_json
+    end
+
   end
 end

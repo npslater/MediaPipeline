@@ -1,4 +1,5 @@
 require 'thor'
+require 'aws-sdk'
 
 module MediaPipeline
   class CLI < Thor
@@ -32,7 +33,29 @@ module MediaPipeline
     option :dir, :required=>true, :banner=>'DIR', :desc=>'The directory to index'
     option :ext, :required=>true, :banner=>'EXT', :desc=>'The extension of files to index'
     def process_files
-      processor = MediaPipeline::FileProcessor.new(options)
+      config = MediaPipeline::ConfigFile.new(options[:config])
+      data_access =  MediaPipeline::DAL::AWS::DataAccess.new(
+          MediaPipeline::DAL::AWS::DataAccessContext.new
+                                    .configure_s3(AWS::S3.new(region:config['aws']['region']),
+                                                  config['s3']['bucket'],
+                                                  :archive_prefix => config['s3']['archive_prefix'],
+                                                  :cover_art_prefix => config['s3']['cover_art_prefix'],
+                                                  :transcode_input_prefix => config['s3']['transcode_input_prefix'],
+                                                  :transcode_output_prefix => config['s3']['transcode_output_prefix'])
+                                    .configure_ddb(AWS::DynamoDB.new(region:config['aws']['region']),
+                                                   config['db']['file_table'],
+                                                   config['db']['archive_table'])
+                                    .configure_sqs(AWS::SQS.new(region:config['aws']['region']),
+                                                   :transcode_queue_name => config['sqs']['transcode_queue'],
+                                                   :id3_tag_queue_name =>config['sqs']['id3tag_queue'],
+                                                   :cloudplayer_upload_queue_name =>config['sqs']['cloudplayer_upload_queue']))
+
+      logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
+      logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
+      processor = MediaPipeline::FileProcessor.new(config,
+                                                   data_access,
+                                                   MediaPipeline::DirectoryFilter.new(options[:dir], options[:ext]),
+                                                   logger)
       processor.process_files
     end
 
@@ -45,7 +68,11 @@ module MediaPipeline
       The ElasticTranscoder pipeline is created using SDK calls.
     LONGDESC
     def create
-      builder = MediaPipeline::PipelineBuilder.new(options)
+      config = MediaPipeline::ConfigFile.new(options[:config])
+      builder = MediaPipeline::PipelineBuilder.new(config,
+                                                   MediaPipeline::PipelineContext.new(options[:name],
+                                                                                      options[:template],
+                                                                                      AWS::CloudFormation.new(region:config['aws']['region'])))
       builder.create
     end
   end
