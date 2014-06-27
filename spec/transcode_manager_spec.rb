@@ -8,6 +8,7 @@ describe MediaPipeline::TranscodeManager do
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
+  let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region']).client}
   let!(:archive_key) { File.dirname(file) }
   let!(:data_access) {
     MediaPipeline::DAL::AWS::DataAccess.new(
@@ -26,7 +27,7 @@ describe MediaPipeline::TranscodeManager do
                                                  config['sqs']['id3tag_queue'],
                                                  config['sqs']['cloudplayer_upload_queue']))
   }
-  let!(:transcode_mgr) { MediaPipeline::TranscodeManager.new(config, data_access, logger:Logger.new(STDOUT), file_extension:'m4a') }
+  let!(:transcode_mgr) { MediaPipeline::TranscodeManager.new(config, data_access, transcoder, logger:Logger.new(STDOUT), file_extension:'m4a') }
 
   before(:all) do
     cleanup_archive_objects
@@ -36,8 +37,22 @@ describe MediaPipeline::TranscodeManager do
   end
 
   it 'should return an instance of TranscodeManager' do
-    transcode_mgr = MediaPipeline::TranscodeManager.new(config, data_access)
+    transcode_mgr = MediaPipeline::TranscodeManager.new(config, data_access, transcoder)
     expect(transcode_mgr).to be_an_instance_of(MediaPipeline::TranscodeManager)
+  end
+
+  it 'should submit a job to the pipeline' do
+    keys = data_access.write_transcoder_input([file])
+    begin
+      keys.each do | key |
+        output_key = "#{File.basename(key, 'm4a')}.mp3"
+        pipeline_id = transcode_mgr.get_pipeline_id(transcoder.list_pipelines, config['transcoder']['pipeline_name'])
+        transcode_mgr.create_job(pipeline_id, key, output_key, config['s3']['transcode_output_prefix'], config['transcoder']['preset_id'])
+      end
+    rescue Exception => e
+      puts e
+      expect(false).to be_truthy
+    end
   end
 
   it 'should prepare the input files to the transcoding pipeline job' do
