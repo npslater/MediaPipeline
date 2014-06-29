@@ -32,6 +32,9 @@
         },
         "CloudPlayerUploadQueueName": {
             "Type": "String"
+        },
+        "TranscodeTopicName": {
+            "Type": "String"
         }
     },
     "Mappings": {
@@ -41,9 +44,11 @@
         "S3Bucket": {
             "Type": "AWS::S3::Bucket",
             "Properties": {
-                "BucketName": {"Ref": "S3BucketName"},
+                "BucketName": {
+                    "Ref": "S3BucketName"
+                },
                 "LifecycleConfiguration": {
-                    "Rules":[
+                    "Rules": [
                         {
                             "Id": "RAR archive lifecycle",
                             "Prefix": "archive/",
@@ -92,7 +97,9 @@
         "MediaArchiveTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
-                "TableName": { "Ref": "DDBArchiveTable"},
+                "TableName": {
+                    "Ref": "DDBArchiveTable"
+                },
                 "AttributeDefinitions": [
                     {
                         "AttributeName": "local_dir",
@@ -114,23 +121,78 @@
         "TranscodeQueue": {
             "Type": "AWS::SQS::Queue",
             "Properties": {
-                "QueueName": {"Ref": "TranscodeQueueName"}
+                "QueueName": {
+                    "Ref": "TranscodeQueueName"
+                }
             }
         },
         "ID3TagQueue": {
             "Type": "AWS::SQS::Queue",
             "Properties": {
-                "QueueName": {"Ref": "ID3TagQueueName"}
+                "QueueName": {
+                    "Ref": "ID3TagQueueName"
+                }
             }
         },
         "CloudPlayerUploadQueue": {
             "Type": "AWS::SQS::Queue",
             "Properties": {
-                "QueueName": {"Ref": "CloudPlayerUploadQueueName"}
+                "QueueName": {
+                    "Ref": "CloudPlayerUploadQueueName"
+                }
+            }
+        },
+        "TranscodeTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "TopicName": {"Ref": "TranscodeTopicName"}
+            }
+
+        },
+        "TranscoderRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [ "elastictranscoder.amazonaws.com" ]
+                            },
+                            "Action": [ "sts:AssumeRole" ]
+                        }
+                    ]
+                },
+                "Path": "/mediapipeline/",
+                "Policies": [
+                    {
+                        "PolicyName": "transcoder",
+                        "PolicyDocument": {
+                            "Version": "2008-10-17",
+                            "Statement": [
+                                {"Sid":"1","Effect":"Allow","Action":["s3:ListBucket","s3:Put*","s3:Get*","s3:*MultipartUpload*"],"Resource":{"Fn::Join": ["", ["arn:aws:s3:::", {"Ref": "S3Bucket"}]]}},
+                                {"Sid":"2","Effect":"Allow","Action":"sns:Publish","Resource":{"Ref": "TranscodeTopic"}},
+                                {"Sid":"3","Effect":"Deny","Action":["s3:*Policy*","sns:*Permission*","sns:*Delete*","s3:*Delete*","sns:*Remove*"],"Resource":"*"}
+                            ]
+                        }
+                    }
+                ]
             }
         }
     },
     "Outputs": {
-
+        "TranscodeInputBucket": {
+            "Value": {"Ref": "S3Bucket"}
+        },
+        "TranscodeOutputBucket": {
+            "Value": {"Ref": "S3Bucket"}
+        },
+        "TranscodeSNSTopic": {
+            "Value": {"Ref": "TranscodeTopic"}
+        },
+        "TranscodeRole": {
+            "Value": {"Fn::GetAtt" : ["TranscoderRole", "Arn"] }
+        }
     }
 }

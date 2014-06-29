@@ -22,9 +22,11 @@ development:
     id3tag_queue: id3tag_dev
     cloudplayer_upload_queue: cloudplayer_dev
   transcoder:
-    pipeline_name: ALAC_to_MP3
+    pipeline_name: Test
     preset_id: 1351620000001-300010
     output_file_ext: mp3
+  sns:
+    transcode_topic_name: transcoder_dev
   schedule:
     hours_in_day: -[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
 test:
@@ -53,6 +55,8 @@ test:
     pipeline_name: ALAC_to_MP3
     preset_id: 1351620000001-300010
     output_file_ext: mp3
+  sns:
+    transcode_topic_name: transcoder_test
   schedule:
     hours_in_day: -[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
 production:
@@ -84,5 +88,7 @@ production:
      pipeline_name: ALAC_to_MP3
      preset_id: 1351620000001-300010
      output_file_ext: mp3
+  sns:
+    transcode_topic_name: transcoder
   schedule:
       hours_in_day: -[22,23,0,1,2,3,4]

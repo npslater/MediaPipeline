@@ -4,6 +4,7 @@ require 'aws-sdk'
 module MediaPipeline
   class CLI < Thor
     class_option :config, :required=>false, :banner=>'CONFIG FILE', :desc=>'The path to the config file', :default=>'~/.mediapipeline/config'
+    class_option :config_key, :required=>false, :banner=>'CONFIG KEY', :desc=>'The configuration key to use when running (e.g. development, test, production', :default=>'production'
     class_option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
     class_option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
 
@@ -33,7 +34,7 @@ module MediaPipeline
     option :dir, :required=>true, :banner=>'DIR', :desc=>'The directory to index'
     option :ext, :required=>true, :banner=>'EXT', :desc=>'The extension of files to index'
     def process_files
-      config = MediaPipeline::ConfigFile.new(options[:config]).config
+      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
       data_access =  MediaPipeline::DAL::AWS::DataAccess.new(
           MediaPipeline::DAL::AWS::DataAccessContext.new
                                     .configure_s3(AWS::S3.new(region:config['aws']['region']),
@@ -73,7 +74,7 @@ module MediaPipeline
       The ElasticTranscoder pipeline is created using SDK calls.
     LONGDESC
     def create
-      config = MediaPipeline::ConfigFile.new(options[:config]).config
+      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
       builder = MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new(options[:name],
                                                                                       options[:template],
                                                                                       AWS::CloudFormation.new(region:config['aws']['region']),
@@ -87,7 +88,8 @@ module MediaPipeline
                                                                                           'DDBArchiveTable' => config['db']['archive_table'],
                                                                                           'TranscodeQueueName' => config['sqs']['transcode_queue'],
                                                                                           'ID3TagQueueName' => config['sqs']['id3tag_queue'],
-                                                                                          'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue']
+                                                                                          'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue'],
+                                                                                          'TranscodeTopicName' => config['sns']['transcode_topic_name']
                                                                                       }
                                                    ))
       builder.create

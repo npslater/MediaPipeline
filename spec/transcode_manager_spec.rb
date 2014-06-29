@@ -3,7 +3,7 @@ require 'spec_helper'
 describe MediaPipeline::TranscodeManager do
   include AWSHelper, ArchiveHelper
 
-  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml').config }
+  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config }
   let!(:file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}

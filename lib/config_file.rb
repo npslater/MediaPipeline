@@ -5,9 +5,8 @@ module MediaPipeline
 
     attr_reader :config
 
-    def initialize(path)
-      context = ENV['ENVIRONMENT'].nil? ? 'production' : ENV['ENVIRONMENT']
-      @config = YAML.load(File.read(path))[context]
+    def initialize(path, key)
+      @config = YAML.load(File.read(path))[key]
     end
   end
 end

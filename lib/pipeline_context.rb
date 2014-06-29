@@ -3,22 +3,24 @@ require 'uri'
 module MediaPipeline
   class PipelineContext
 
-    attr_reader :name, :cfn, :params
+    attr_reader :name, :template, :cfn, :transcoder, :params
 
-    def initialize(name, template, cfn, params={})
+    def initialize(name, template, cfn, transcoder, params={})
       @name = name
       @template = template
       @cfn = cfn
+      @transcoder = transcoder
       @params = params
     end
 
     def templateUrl?
       begin
-        URI.parse(@template)
+        uri = URI.parse(@template)
+        return (uri.instance_of?(URI::HTTP) or uri.instance_of?(URI::HTTPS))
       rescue URI::InvalidURIError
         false
       end
-      true
+      false
     end
   end
 end
