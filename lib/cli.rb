@@ -33,7 +33,7 @@ module MediaPipeline
     option :dir, :required=>true, :banner=>'DIR', :desc=>'The directory to index'
     option :ext, :required=>true, :banner=>'EXT', :desc=>'The extension of files to index'
     def process_files
-      config = MediaPipeline::ConfigFile.new(options[:config])
+      config = MediaPipeline::ConfigFile.new(options[:config]).config
       data_access =  MediaPipeline::DAL::AWS::DataAccess.new(
           MediaPipeline::DAL::AWS::DataAccessContext.new
                                     .configure_s3(AWS::S3.new(region:config['aws']['region']),
@@ -52,6 +52,11 @@ module MediaPipeline
 
       logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
       logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
+
+      concurrency_mgr = MediaPipeline::ConcurrencyManager.new(config['s3']['concurrent_connections'].to_i)
+      concurrency_mgr.logger = logger
+      data_access.concurrency_manager = concurrency_mgr
+
       processor = MediaPipeline::FileProcessor.new(config,
                                                    data_access,
                                                    MediaPipeline::DirectoryFilter.new(options[:dir], options[:ext]),
@@ -68,11 +73,23 @@ module MediaPipeline
       The ElasticTranscoder pipeline is created using SDK calls.
     LONGDESC
     def create
-      config = MediaPipeline::ConfigFile.new(options[:config])
-      builder = MediaPipeline::PipelineBuilder.new(config,
-                                                   MediaPipeline::PipelineContext.new(options[:name],
+      config = MediaPipeline::ConfigFile.new(options[:config]).config
+      builder = MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new(options[:name],
                                                                                       options[:template],
-                                                                                      AWS::CloudFormation.new(region:config['aws']['region'])))
+                                                                                      AWS::CloudFormation.new(region:config['aws']['region']),
+                                                                                      {
+                                                                                          'S3BucketName' => config['s3']['bucket'],
+                                                                                          'S3ArchivePrefix' => config['s3']['archive_prefix'],
+                                                                                          'S3InputPrefix' => config['s3']['transcode_input_prefix'],
+                                                                                          'S3OutputPrefix' => config['s3']['transcode_output_prefix'],
+                                                                                          'S3CoverArtPrefix' => config['s3']['cover_art_prefix'],
+                                                                                          'DDBFileTable' => config['db']['file_table'],
+                                                                                          'DDBArchiveTable' => config['db']['archive_table'],
+                                                                                          'TranscodeQueueName' => config['sqs']['transcode_queue'],
+                                                                                          'ID3TagQueueName' => config['sqs']['id3tag_queue'],
+                                                                                          'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue']
+                                                                                      }
+                                                   ))
       builder.create
     end
   end

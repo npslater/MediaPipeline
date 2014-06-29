@@ -37,18 +37,22 @@ describe MediaPipeline::FileProcessor do
   end
 
   it 'should process all the files in the given directory' do
-    processor = MediaPipeline::FileProcessor.new(config,
-                                                 data_access,
-                                                 MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a'))
+    processor = MediaPipeline::FileProcessor.new(data_access,
+                                                 MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a'),
+                                                 MediaPipeline::ArchiveContext.new(config['local']['rar_path'],
+                                                                                   config['local']['archive_dir'],
+                                                                                   config['local']['download_dir']))
     processor.process_files
     #not the ideal expectation, but if we get here without errors, it's a good indication the routine ran
     expect(true).to be_truthy
   end
 
   it 'should not process any files in the given directory if it has not been scheduled' do
-    processor = MediaPipeline::FileProcessor.new(config,
-                                                 data_access,
-                                                 MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a'))
+    processor = MediaPipeline::FileProcessor.new(data_access,
+                                                 MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a'),
+                                                 MediaPipeline::ArchiveContext.new(config['local']['rar_path'],
+                                                                                   config['local']['archive_dir'],
+                                                                                   config['local']['download_dir']))
     processor.scheduler = MediaPipeline::Scheduler.new([24]) #this will never match a valid hour value (0-23)
     processor.process_files
     expect(Dir.glob("#{config['local']['archive_dir']}/**/*.rar").count).to be == 0

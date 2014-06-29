@@ -8,7 +8,7 @@ describe MediaPipeline::TranscodeManager do
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
-  let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region']).client}
+  let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region'])}
   let!(:archive_key) { File.dirname(file) }
   let!(:data_access) {
     MediaPipeline::DAL::AWS::DataAccess.new(
@@ -27,7 +27,9 @@ describe MediaPipeline::TranscodeManager do
                                                  config['sqs']['id3tag_queue'],
                                                  config['sqs']['cloudplayer_upload_queue']))
   }
-  let!(:transcode_mgr) { MediaPipeline::TranscodeManager.new(config, data_access, transcoder, logger:Logger.new(STDOUT), file_extension:'m4a') }
+  let!(:transcode_context) { MediaPipeline::TranscodingContext.new(transcoder, config['transcoder']['pipeline_name'], config['transcoder']['preset_id'], input_ext:'m4a', output_ext:'mp3')}
+  let!(:archive_context) { MediaPipeline::ArchiveContext.new(config['local']['rar_path'], config['local']['archive_dir'], config['local']['download_dir'])}
+  let!(:transcode_mgr) { MediaPipeline::TranscodeManager.new(data_access, transcode_context, archive_context, logger:Logger.new(STDOUT)) }
 
   before(:all) do
     cleanup_archive_objects
@@ -36,18 +38,12 @@ describe MediaPipeline::TranscodeManager do
     cleanup_transcode_output_objects
   end
 
-  it 'should return an instance of TranscodeManager' do
-    transcode_mgr = MediaPipeline::TranscodeManager.new(config, data_access, transcoder)
-    expect(transcode_mgr).to be_an_instance_of(MediaPipeline::TranscodeManager)
-  end
-
   it 'should submit a job to the pipeline' do
     keys = data_access.write_transcoder_input([file])
     begin
       keys.each do | key |
         output_key = "#{File.basename(key, 'm4a')}.mp3"
-        pipeline_id = transcode_mgr.get_pipeline_id(transcoder.list_pipelines, config['transcoder']['pipeline_name'])
-        transcode_mgr.create_job(pipeline_id, key, output_key, config['s3']['transcode_output_prefix'], config['transcoder']['preset_id'])
+        transcode_mgr.create_job(key, output_key, data_access.context.s3_opts[:transcode_output_prefix])
       end
     rescue Exception => e
       puts e
