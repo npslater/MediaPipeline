@@ -3,13 +3,14 @@ require 'uri'
 module MediaPipeline
   class PipelineContext
 
-    attr_reader :name, :template, :cfn, :transcoder, :params
+    attr_reader :name, :template, :cfn, :transcoder, :bucket, :params
 
-    def initialize(name, template, cfn, transcoder, params={})
+    def initialize(name, template, cfn, transcoder, bucket, params={})
       @name = name
       @template = template
       @cfn = cfn
       @transcoder = transcoder
+      @bucket = bucket
       @params = params
     end
 

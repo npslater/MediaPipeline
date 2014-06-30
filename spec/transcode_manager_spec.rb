@@ -42,7 +42,7 @@ describe MediaPipeline::TranscodeManager do
     keys = data_access.write_transcoder_input([file])
     begin
       keys.each do | key |
-        output_key = "#{File.basename(key, 'm4a')}.mp3"
+        output_key = "#{File.basename(key, '.m4a')}.mp3"
         transcode_mgr.create_job(key, output_key, data_access.context.s3_opts[:transcode_output_prefix])
       end
     rescue Exception => e
@@ -53,7 +53,7 @@ describe MediaPipeline::TranscodeManager do
 
   it 'should prepare the input files to the transcoding pipeline job' do
     save_archive(archive_key, config, file, data_access)
-    transcode_mgr.prepare_input(archive_key)
+    transcode_mgr.transcode(archive_key)
   end
 
 end

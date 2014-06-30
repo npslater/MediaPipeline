@@ -4,7 +4,7 @@ development:
     download_dir: /Users/nslater/temp/download
     cover_art_dir: /Users/nslater/temp/cover_art
     media_files_dir: /Users/nslater/temp/m4a
-    rar_path: /usr/local/bin/rar
+    rar_path: /usr/bin/rar
   aws:
     region: us-west-2
   s3:
@@ -22,13 +22,13 @@ development:
     id3tag_queue: id3tag_dev
     cloudplayer_upload_queue: cloudplayer_dev
   transcoder:
-    pipeline_name: Test
+    pipeline_name: media-pipeline-dev
     preset_id: 1351620000001-300010
     output_file_ext: mp3
   sns:
     transcode_topic_name: transcoder_dev
   schedule:
-    hours_in_day: -[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+    hours_in_day: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
 test:
   local:
     archive_dir: /Users/nslater/temp/archive
@@ -78,8 +78,6 @@ production:
     file_table: media_file
     archive_table: media_archive
     title_table: media_title
-  cfn:
-    stack_name: MediaPipeline
   sqs:
     transcode_queue: transcode
     id3tag_queue: id3tag

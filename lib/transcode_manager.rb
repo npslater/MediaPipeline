@@ -44,7 +44,7 @@ module MediaPipeline
     )
     end
 
-    def prepare_input(archive_key)
+    def transcode(archive_key)
 
       urls = @data_access.fetch_archive_urls(archive_key)
       @logger.info(self.class) { LogMessage.new('data_access.fetch_archive_urls', {key:archive_key,urls:urls}, 'Fetched archive URLs from DynamoDB').to_s}
@@ -77,14 +77,24 @@ module MediaPipeline
         }
       end
 
-      filter = "#{dir}/**/*.#{@file_extension}"
+      filter = "#{dir}/**/*.#{@context.input_ext}"
       files = Dir.glob(filter)
       keys = @data_access.write_transcoder_input(files)
       @logger.info(self.class) {LogMessage.new('data_access.write_transcoder_input', {files:files}, 'Wrote transcoder input files to S3').to_s}
 
+      #wait for s3 uploads to complete
+      bucket = @data_access.context.s3_opts[:s3].buckets[@data_access.context.s3_opts[:bucket_name]]
+      finished = false
+      while not finished
+        uploaded = keys.select {|key| bucket.objects[key].exists?}.count
+        @logger.debug(self.class) {LogMessage.new('wait.upload', {completed:uploaded, remaining:keys.count-uploaded, total:keys.count}, 'Waiting for S3 upload(s) to complete').to_s}
+        finished = (uploaded == keys.count)
+        sleep 5
+      end
+
       #for each file, submit a job to the ElasticTranscoder pipeline
       keys.each do | key |
-        out_key = "#{File.basename(key, @context.input_ext)}.#{@context.output_ext}"
+        out_key = "#{File.basename(key, @context.input_ext)}#{@context.output_ext}"
         create_job(key, out_key, @data_access.context.s3_opts[:transcode_output_prefix])
         @logger.info(self.class) {LogMessage.new('transcoder.submit_job', {input_key:key, output_key:out_key}, 'Submitted job to transcoding pipeline').to_s}
       end

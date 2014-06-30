@@ -93,6 +93,7 @@ module MediaPipeline
           message = JSON.generate({ archive_key: archive_key })
           queue =  @context.sqs_opts[:sqs].queues.named(@context.sqs_opts[:transcode_queue_name])
           queue.send_message(message)
+          message
         end
 
         def fetch_archive_urls(archive_key)

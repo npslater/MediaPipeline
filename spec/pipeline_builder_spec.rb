@@ -6,31 +6,40 @@ describe MediaPipeline::PipelineBuilder do
   let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config }
   let!(:cfn) { AWS::CloudFormation.new(region:config['aws']['region'])}
   let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region'])}
-  let!(:stack_prefix) { 'MediaPipelineRSpec'}
+  let!(:prefix) { 'rspec' }
+  let!(:suffix) { SecureRandom.uuid[1,6]}
+  let!(:bucket) { "#{prefix}-#{config['s3']['bucket']}-#{suffix}"}
+  let!(:builder) {  MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new("#{prefix}-#{suffix}", './cfn/aws.json', cfn, transcoder, bucket, {
+                      'S3BucketName' => bucket,
+                      'S3ArchivePrefix' => config['s3']['archive_prefix'],
+                      'S3InputPrefix' => config['s3']['transcode_input_prefix'],
+                      'S3OutputPrefix' => config['s3']['transcode_output_prefix'],
+                      'S3CoverArtPrefix' => config['s3']['cover_art_prefix'],
+                      'DDBFileTable' => "#{prefix}-#{config['db']['file_table']}-#{suffix}",
+                      'DDBArchiveTable' => "#{prefix}-#{config['db']['archive_table']}-#{suffix}",
+                      'TranscodeQueueName' => "#{prefix}-#{config['sqs']['transcode_queue']}-#{suffix}",
+                      'ID3TagQueueName' => "#{prefix}-#{config['sqs']['id3tag_queue']}-#{suffix}",
+                      'CloudPlayerUploadQueueName' => "#{prefix}-#{config['sqs']['cloudplayer_upload_queue']}-#{suffix}",
+                      'TranscodeTopicName' => "#{prefix}-#{config['sns']['transcode_topic_name']}-#{suffix}"
+                  }))
+
+  }
 
   before(:all) do
     ENV['ENVIRONMENT'] = 'test'
-    cleanup_stacks('RSpecPipeline')
+    cleanup_stacks('rspec')
+    cleanup_pipelines('rspec')
   end
 
-  it 'should create the pipeline' do
-    builder = MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new("#{stack_prefix}#{SecureRandom.uuid}", './cfn/aws.json', cfn, transcoder, {
-        'S3BucketName' => config['s3']['bucket'],
-        'S3ArchivePrefix' => config['s3']['archive_prefix'],
-        'S3InputPrefix' => config['s3']['transcode_input_prefix'],
-        'S3OutputPrefix' => config['s3']['transcode_output_prefix'],
-        'S3CoverArtPrefix' => config['s3']['cover_art_prefix'],
-        'DDBFileTable' => config['db']['file_table'],
-        'DDBArchiveTable' => config['db']['archive_table'],
-        'TranscodeQueueName' => config['sqs']['transcode_queue'],
-        'ID3TagQueueName' => config['sqs']['id3tag_queue'],
-        'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue'],
-        'TranscodeTopicName' => config['sns']['transcode_topic_name']
-    }))
-    stack = builder.create
+  it 'should create the stack and the pipeline' do
+    stack = builder.create_stack
     stack.outputs.each do | output |
-      puts "output: #{output.value}"
+      puts "#{output.key}=#{output.value}"
     end
     expect(stack.status).to be == 'CREATE_COMPLETE'
+    role_arn = stack.outputs.select {|output| output.key.eql?('TranscoderRole')}.first.value
+    sns_arn = stack.outputs.select {|output| output.key.eql?('TranscodeSNSTopic')}.first.value
+    response = builder.create_pipeline(role_arn, sns_arn)
+    #expect(response[:pipelines].first[:pipeline_id]).not_to be_nil
   end
 end

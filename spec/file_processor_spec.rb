@@ -30,6 +30,7 @@ describe MediaPipeline::FileProcessor do
     cleanup_cover_art_objects
     cleanup_archive_objects
     cleanup_archive_file_items
+    cleanup_transcode_queue
   end
 
   before(:each) do
@@ -37,11 +38,18 @@ describe MediaPipeline::FileProcessor do
   end
 
   it 'should process all the files in the given directory' do
+    logger = Logger.new(STDOUT)
+    logger.level = Logger::DEBUG
+    concurrency_mgr = MediaPipeline::ConcurrencyManager.new(config['s3']['concurrent_connections'].to_i)
+    concurrency_mgr.logger = logger
+
+    data_access.concurrency_mgr = concurrency_mgr
+
     processor = MediaPipeline::FileProcessor.new(data_access,
                                                  MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a'),
                                                  MediaPipeline::ArchiveContext.new(config['local']['rar_path'],
                                                                                    config['local']['archive_dir'],
-                                                                                   config['local']['download_dir']))
+                                                                                   config['local']['download_dir']), logger:logger)
     processor.process_files
     #not the ideal expectation, but if we get here without errors, it's a good indication the routine ran
     expect(true).to be_truthy

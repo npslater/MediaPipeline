@@ -71,16 +71,6 @@ module AWSHelper
     cfn.stacks.each do | stack |
       if stack.name.include?(stack_name)
         stack.delete
-        print 'Deleting stack...'
-        begin
-          while stack.status.eql?('DELETE_IN_PROGRESS')
-            print '...'
-            sleep(2)
-          end
-        rescue  AWS::CloudFormation::Errors::ValidationError => e
-          print 'deleted'
-          puts
-        end
       end
     end
   end
@@ -89,6 +79,16 @@ module AWSHelper
     config = config_file
     sqs = AWS::SQS.new(region:config['aws']['region'])
     queue = sqs.queues.named(config['sqs']['transcode_queue'])
-    queue.poll(:idle_timeout=>2) { |msg| sqs.delete_message(queue, msg.handle) }
+    queue.poll(:idle_timeout=>2) { |msg| sqs.client.delete_message(queue_url:queue.url, receipt_handle:msg.handle) }
+  end
+
+  def cleanup_pipelines(pipeline_name)
+    config = config_file
+    transcoder = AWS::ElasticTranscoder.new(region:config['aws']['region'])
+    transcoder.client.list_pipelines[:pipelines].each do | pipeline |
+      if pipeline[:name].include?(pipeline_name)
+        transcoder.client.delete_pipeline(id:pipeline[:id])
+      end
+    end
   end
 end

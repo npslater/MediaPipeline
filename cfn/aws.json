@@ -171,7 +171,7 @@
                         "PolicyDocument": {
                             "Version": "2008-10-17",
                             "Statement": [
-                                {"Sid":"1","Effect":"Allow","Action":["s3:ListBucket","s3:Put*","s3:Get*","s3:*MultipartUpload*"],"Resource":{"Fn::Join": ["", ["arn:aws:s3:::", {"Ref": "S3Bucket"}]]}},
+                                {"Sid":"1","Effect":"Allow","Action":["s3:ListBucket","s3:Put*","s3:Get*","s3:*MultipartUpload*"],"Resource":{"Fn::Join": ["", ["arn:aws:s3:::", {"Ref": "S3Bucket"},"*"]]}},
                                 {"Sid":"2","Effect":"Allow","Action":"sns:Publish","Resource":{"Ref": "TranscodeTopic"}},
                                 {"Sid":"3","Effect":"Deny","Action":["s3:*Policy*","sns:*Permission*","sns:*Delete*","s3:*Delete*","sns:*Remove*"],"Resource":"*"}
                             ]
@@ -191,7 +191,7 @@
         "TranscodeSNSTopic": {
             "Value": {"Ref": "TranscodeTopic"}
         },
-        "TranscodeRole": {
+        "TranscoderRole": {
             "Value": {"Fn::GetAtt" : ["TranscoderRole", "Arn"] }
         }
     }

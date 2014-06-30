@@ -97,7 +97,6 @@ describe MediaPipeline::DAL::AWS::DataAccess do
     data_access.queue_transcode_task(archive_key)
     queue = sqs.queues.named(config['sqs']['transcode_queue'])
     queue.poll(:initial_timeout=>2, :idle_timeout=>2) { |msg| expect(msg.body.include?(archive_key)).to be_truthy }
-
   end
 
   it 'should fetch the archive urls from dynamoDB' do

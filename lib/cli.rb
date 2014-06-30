@@ -1,5 +1,6 @@
 require 'thor'
 require 'aws-sdk'
+require 'json'
 
 module MediaPipeline
   class CLI < Thor
@@ -35,38 +36,27 @@ module MediaPipeline
     option :ext, :required=>true, :banner=>'EXT', :desc=>'The extension of files to index'
     def process_files
       config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
-      data_access =  MediaPipeline::DAL::AWS::DataAccess.new(
-          MediaPipeline::DAL::AWS::DataAccessContext.new
-                                    .configure_s3(AWS::S3.new(region:config['aws']['region']),
-                                                  config['s3']['bucket'],
-                                                  :archive_prefix => config['s3']['archive_prefix'],
-                                                  :cover_art_prefix => config['s3']['cover_art_prefix'],
-                                                  :transcode_input_prefix => config['s3']['transcode_input_prefix'],
-                                                  :transcode_output_prefix => config['s3']['transcode_output_prefix'])
-                                    .configure_ddb(AWS::DynamoDB.new(region:config['aws']['region']),
-                                                   config['db']['file_table'],
-                                                   config['db']['archive_table'])
-                                    .configure_sqs(AWS::SQS.new(region:config['aws']['region']),
-                                                   :transcode_queue_name => config['sqs']['transcode_queue'],
-                                                   :id3_tag_queue_name =>config['sqs']['id3tag_queue'],
-                                                   :cloudplayer_upload_queue_name =>config['sqs']['cloudplayer_upload_queue']))
+      data_access = init_data_access(config)
 
       logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
       logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
 
       concurrency_mgr = MediaPipeline::ConcurrencyManager.new(config['s3']['concurrent_connections'].to_i)
       concurrency_mgr.logger = logger
-      data_access.concurrency_manager = concurrency_mgr
+      data_access.concurrency_mgr=concurrency_mgr
 
-      processor = MediaPipeline::FileProcessor.new(config,
-                                                   data_access,
+      archive_context = init_archive_context(config)
+      puts config['schedule']['hours_in_day']
+      processor = MediaPipeline::FileProcessor.new(data_access,
                                                    MediaPipeline::DirectoryFilter.new(options[:dir], options[:ext]),
-                                                   logger)
+                                                   archive_context,
+                                                   logger:logger,
+                                                   scheduler:MediaPipeline::Scheduler.new(config['schedule']['hours_in_day']))
       processor.process_files
     end
 
     desc 'create', 'Create a media pipeline'
-    option :name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
     option :template, :required=>true, :banner=>'CFN_TEMPLATE', :desc=>'The path or URL to the CFN template'
     long_desc <<-LONGDESC
       Creates all the AWS resources required for the media pipeline.  Most resources are created using CloudFormation.
@@ -74,10 +64,15 @@ module MediaPipeline
       The ElasticTranscoder pipeline is created using SDK calls.
     LONGDESC
     def create
+      logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
+      logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
+
       config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
-      builder = MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new(options[:name],
+      builder = MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new(options[:pipeline_name],
                                                                                       options[:template],
                                                                                       AWS::CloudFormation.new(region:config['aws']['region']),
+                                                                                      AWS::ElasticTranscoder.new(region:config['aws']['region']),
+                                                                                      config['s3']['bucket'],
                                                                                       {
                                                                                           'S3BucketName' => config['s3']['bucket'],
                                                                                           'S3ArchivePrefix' => config['s3']['archive_prefix'],
@@ -90,9 +85,85 @@ module MediaPipeline
                                                                                           'ID3TagQueueName' => config['sqs']['id3tag_queue'],
                                                                                           'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue'],
                                                                                           'TranscodeTopicName' => config['sns']['transcode_topic_name']
-                                                                                      }
-                                                   ))
-      builder.create
+                                                                                      }),logger:logger)
+      stack = builder.create_stack
+      role_arn = stack.outputs.select {|output| output.key.eql?('TranscoderRole')}.first.value
+      sns_arn = stack.outputs.select {|output| output.key.eql?('TranscodeSNSTopic')}.first.value
+      builder.create_pipeline(role_arn, sns_arn)
     end
+
+    desc 'transcode', 'Poll for messages on the transcoding queue and submit jobs to the ElasticTranscoder pipeline'
+    option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :poll_timeout, :required=>false, :banner=>'TIMEOUT', :type=>:numeric, :default=>3600, :desc=>'Stop polling after this interval if no messages are being received.'
+    option :input_file_ext, :required=>true, :banner=>'INPUT_FILE_EXTENSION', :desc=>'The extension of the input files to be transcoded'
+    long_desc <<-LONGDESC
+      This command is designed to be run on the worker hosts that are responsible for downloading and unpacking an archive and
+      submitting the files it contains to the ElasticTranscode pipeline.  The command will poll for messages on the transcode
+      queue, download the archive specified in the message, upload the files in the archive to S3 and create an ElasticTranscoder job.
+
+      The command uses long-polling and will poll for the length of time specified by the poll-timeout option (default 60 minutes).  The command will exit when
+      no messages are being returned from the queue and the poll-timeout interval has been reached.
+    LONGDESC
+    def transcode
+      logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
+      logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
+
+      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
+      concurrency_mgr = MediaPipeline::ConcurrencyManager.new(config['s3']['concurrent_connections'])
+      concurrency_mgr.logger = logger
+
+      data_access = init_data_access(config)
+      data_access.concurrency_mgr = concurrency_mgr
+
+      context = MediaPipeline::TranscodingContext.new(AWS::ElasticTranscoder.new(region:config['aws']['region']),
+                                            options[:pipeline_name],
+                                            config['transcoder']['preset_id'],
+                                            input_ext:options[:input_file_ext],
+                                            output_ext:config['transcoder']['output_ext'])
+
+      archive_context = MediaPipeline::ArchiveContext.new(config['local']['rar_path'], config['local']['archive_dir'], config['local']['download_dir'])
+      transcode_mgr = MediaPipeline::TranscodeManager.new(data_access, context, archive_context, logger:logger)
+
+      queue = data_access.context.sqs_opts[:sqs].queues.named(data_access.context.sqs_opts[:transcode_queue_name])
+      logger.info(self.class) { MediaPipeline::LogMessage.new('transcode.poll_queue', {queue:queue.url, poll_timeout:options[:poll_timeout]}, 'Starting to poll for messages from SQS').to_s}
+
+      queue.poll(idle_timeout:options[:poll_timeout], wait_time_seconds:20) do | msg |
+        logger.info(self.class) { MediaPipeline::LogMessage.new('transcode.receive_message', {message:msg.body}, 'Received message from SQS queue').to_s}
+        begin
+          transcode_mgr.transcode(JSON.parse(msg.body)['archive_key'])
+        rescue Exception => e
+          logger.error(self.class) { MediaPipeline::LogMessage.new('transcode.error', {error:e.message}, 'Exception when running transcode command').to_s}
+          raise e
+        end
+      end
+
+    end
+
+    private
+
+    def init_data_access(config)
+      data_access =  MediaPipeline::DAL::AWS::DataAccess.new(
+          MediaPipeline::DAL::AWS::DataAccessContext.new
+          .configure_s3(AWS::S3.new(region:config['aws']['region']),
+                        config['s3']['bucket'],
+                        :archive_prefix => config['s3']['archive_prefix'],
+                        :cover_art_prefix => config['s3']['cover_art_prefix'],
+                        :transcode_input_prefix => config['s3']['transcode_input_prefix'],
+                        :transcode_output_prefix => config['s3']['transcode_output_prefix'])
+          .configure_ddb(AWS::DynamoDB.new(region:config['aws']['region']),
+                         config['db']['file_table'],
+                         config['db']['archive_table'])
+          .configure_sqs(AWS::SQS.new(region:config['aws']['region']),
+                         config['sqs']['transcode_queue'],
+                         config['sqs']['id3tag_queue'],
+                         config['sqs']['cloudplayer_upload_queue']))
+      data_access
+    end
+
+    def init_archive_context(config)
+      archive_context = MediaPipeline::ArchiveContext.new(config['local']['rar_path'], config['local']['archive_dir'], config['local']['download_dir'])
+      archive_context
+    end
+
   end
 end

@@ -58,6 +58,18 @@ module MediaPipeline
         @data_access.save_archive(k, keys)
         @logger.info(self.class) { LogMessage.new('data_access.save_archive', {keys:keys, archive_key:k, table:@data_access.context.ddb_opts[:archive_table_name]}, 'Saved archived directory to DynamoDB').to_s}
 
+        #wait for the uploads to complete
+        bucket = @data_access.context.s3_opts[:s3].buckets[@data_access.context.s3_opts[:bucket_name]]
+        finished = false
+        while not finished
+          uploaded = keys.select {|key| bucket.objects[key].exists?}.count
+          @logger.debug(self.class) {LogMessage.new('wait.upload', {completed:uploaded, remaining:keys.count-uploaded, total:keys.count}, 'Waiting for S3 upload(s) to complete').to_s}
+          finished = (uploaded == keys.count)
+          sleep 5
+        end
+        message = @data_access.queue_transcode_task(k)
+        @logger.info(self.class) { LogMessage.new('data_access.queue_transcode_task', {message:message}, 'Queued transcode task to SQS').to_s}
+
         @logger.info(self.class) {LogMessage.new('process_files.end', {filter:@dir_filter.to_json}, 'Ending file processing').to_s }
       end
     end

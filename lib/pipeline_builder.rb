@@ -32,10 +32,10 @@ module MediaPipeline
       processed_events
     end
 
-    def create
+    def create_stack
       @context.cfn.stacks.create(@context.name,
-                                 @context.templateUrl? ? @context.template : File.read(@context.template),
-                                 :parameters => @context.params)
+                                       @context.templateUrl? ? @context.template : File.read(@context.template),
+                                       :parameters => @context.params)
       stack = @context.cfn.stacks[@context.name]
       finished = false
       while not finished
@@ -44,6 +44,19 @@ module MediaPipeline
         @logger.info(self.class) { MediaPipeline::LogMessage.new('pipeline.create_stack', {events:process_events(stack.events)}, 'Creating CloudFormation stack').to_s}
       end
       stack
+    end
+
+    def create_pipeline(role_arn, sns_arn)
+      @context.transcoder.client.create_pipeline(name:@context.name,
+                                                 role:role_arn,
+                                                 input_bucket:@context.bucket,
+                                                 output_bucket:@context.bucket,
+                                                 notifications:{
+                                                     progressing:'',
+                                                     completed:sns_arn,
+                                                     warning:'',
+                                                     error:sns_arn
+                                                 })
     end
   end
 end
