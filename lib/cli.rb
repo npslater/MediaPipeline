@@ -119,7 +119,7 @@ module MediaPipeline
                                             options[:pipeline_name],
                                             config['transcoder']['preset_id'],
                                             input_ext:options[:input_file_ext],
-                                            output_ext:config['transcoder']['output_ext'])
+                                            output_ext:config['transcoder']['output_file_ext'])
 
       archive_context = MediaPipeline::ArchiveContext.new(config['local']['rar_path'], config['local']['archive_dir'], config['local']['download_dir'])
       transcode_mgr = MediaPipeline::TranscodeManager.new(data_access, context, archive_context, logger:logger)
