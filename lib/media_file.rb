@@ -1,4 +1,5 @@
-require 'Taglib'
+require 'taglib'
+
 module MediaPipeline
   class MediaFile
 
