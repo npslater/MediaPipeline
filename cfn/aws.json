@@ -91,6 +91,24 @@
                         "AttributeName": "local_dir",
                         "KeyType": "RANGE"
                     }
+                ],
+                "GlobalSecondaryIndexes": [
+                    {
+                        "IndexName": "idx_local_dir",
+                        "KeySchema": [
+                            {
+                                "AttributeName": "local_dir",
+                                "KeyType": "HASH"
+                            }
+                        ],
+                        "Projection": {
+                            "ProjectionType": "KEYS_ONLY"
+                        },
+                        "ProvisionedThroughput": {
+                            "ReadCapacityUnits": "5",
+                            "WriteCapacityUnits": "5"
+                        }
+                    }
                 ]
             }
         },

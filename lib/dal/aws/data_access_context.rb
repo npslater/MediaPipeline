@@ -21,10 +21,11 @@ module MediaPipeline
           self
         end
 
-        def configure_ddb(ddb, file_table_name, archive_table_name)
+        def configure_ddb(ddb, file_table_name, archive_table_name, client_version:'2012-08-10')
           @ddb_opts[:ddb] = ddb
           @ddb_opts[:file_table_name] = file_table_name
           @ddb_opts[:archive_table_name] = archive_table_name
+          @ddb_opts[:client] = AWS::DynamoDB::Client.new(api_version:client_version)
           self
         end
 

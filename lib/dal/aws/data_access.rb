@@ -133,6 +133,16 @@ module MediaPipeline
           end
           keys
         end
+
+        def save_transcode_info(archive_key, input_key, output_key)
+          if @archive_table.nil?
+            init_archive_table
+          end
+          if @file_table.nil?
+            init_file_table
+          end
+
+        end
       end
     end
   end

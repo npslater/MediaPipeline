@@ -1,9 +1,9 @@
 development:
   local:
-    archive_dir: /Users/nslater/temp/archive
-    download_dir: /Users/nslater/temp/download
-    cover_art_dir: /Users/nslater/temp/cover_art
-    media_files_dir: /Users/nslater/temp/m4a
+    archive_dir: /Users/slatern/temp/archive
+    download_dir: /Users/slatern/temp/download
+    cover_art_dir: /Users/slatern/temp/cover_art
+    media_files_dir: /Users/slatern/temp/m4a
     rar_path: /usr/bin/rar
   aws:
     region: us-west-2
