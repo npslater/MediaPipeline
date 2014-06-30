@@ -1,5 +1,5 @@
 require 'logger'
-require 'TagLib'
+require 'tagLib'
 require 'securerandom'
 require 'open3'
 
