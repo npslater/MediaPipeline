@@ -1,7 +1,7 @@
 require 'spec_helper'
 
 describe MediaPipeline::RARArchive do
-  include AWSHelper
+  include AWSHelper, ArchiveHelper
 
   let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config }
   let(:files) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a") }
