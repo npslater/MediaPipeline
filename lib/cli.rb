@@ -139,6 +139,48 @@ module MediaPipeline
 
     end
 
+    desc 'analyze', 'This command will scan the directory containing the media files and provide some basic analysis of how much data will be processed'
+    option :dir, :required=>true, :banner=>'DIR'
+    option :ext, :required=>true, :banner=>'EXT'
+    option :output_file, :required=>true, :banner=>'FILE'
+    option :egress_data_transfer, :required=>true, :banner=>'BANDWIDTH (mbit/s)'
+    long_desc <<-LONGDESC
+
+      The purpose of this command is to compute some data that can be used to estimate the amount of time it will take to copy the media files to S3.  This command will output
+      a comma delimited file with the following columns:
+
+      local_dir
+      # files
+      size (bytes)
+      transfer_time (mins)
+    LONGDESC
+    def analyze
+      analysis = {}
+      files = Dir.glob("#{options[:dir]}/**/*.#{options[:ext]}")
+      files.each do | file |
+        key = File.dirname(file)
+        if not analysis.key?(key)
+          analysis[key] = {}
+          analysis[key]['num_files'] = 0
+          analysis[key]['size'] = 0
+          analysis[key]['transfer_time'] = 0
+        end
+        analysis[key]['num_files'] = analysis[key]['num_files'] + 1
+        analysis[key]['size'] = analysis[key]['size'] + File.size(file)
+        analysis[key]['transfer_time'] = (analysis[key]['size']/((options[:egress_data_transfer]/8) * 1024))/60
+      end
+      begin
+        File.open(options[:output_file], 'w') do | file |
+          analysis.keys.each do | key |
+            file.write([key, analysis[key]['num_files'],analysis[key]['size'], analysis[key]['transfer_time']].join(','))
+            file.write('\n')
+          end
+        end
+      ensure
+        file.close unless not file
+      end
+    end
+
     private
 
     def init_data_access(config)
