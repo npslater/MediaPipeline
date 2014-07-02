@@ -97,7 +97,7 @@ module MediaPipeline
       keys.each do | key |
         out_key = "#{File.basename(key, @context.input_ext)}#{@context.output_ext}"
         create_job(key, out_key, @data_access.context.s3_opts[:transcode_output_prefix])
-        wait_time = [(i^2) * 10, 1000].min
+        wait_time = [(i^2) * .010, 1].min
         sleep wait_time
         i = i+1
         @logger.info(self.class) {LogMessage.new('transcoder.submit_job', {input_key:key, output_key:out_key}, 'Submitted job to transcoding pipeline').to_s}
