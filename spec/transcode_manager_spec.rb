@@ -11,8 +11,8 @@ describe MediaPipeline::TranscodeManager do
   let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region'])}
   let!(:archive_key) { File.dirname(file) }
   let!(:data_access) {
-    MediaPipeline::DAL::AWS::DataAccess.new(
-        MediaPipeline::DAL::AWS::DataAccessContext.new
+    MediaPipeline::DataAccess.new(
+        MediaPipeline::DataAccessContext.new
                                   .configure_s3(s3,
                                                 config['s3']['bucket'],
                                                 :archive_prefix => config['s3']['archive_prefix'],

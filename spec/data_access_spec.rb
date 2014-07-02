@@ -2,7 +2,7 @@ require 'spec_helper'
 
 
 
-describe MediaPipeline::DAL::AWS::DataAccess do
+describe MediaPipeline::DataAccess do
   include AWSHelper, ArchiveHelper
 
   let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config }
@@ -12,8 +12,8 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   let!(:file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first }
   let!(:archive_key) { File.dirname(file) }
   let!(:data_access) {
-    MediaPipeline::DAL::AWS::DataAccess.new(
-      MediaPipeline::DAL::AWS::DataAccessContext.new
+    MediaPipeline::DataAccess.new(
+      MediaPipeline::DataAccessContext.new
                                                .configure_s3(s3,
                                                              config['s3']['bucket'],
                                                              :archive_prefix => config['s3']['archive_prefix'],
@@ -41,17 +41,17 @@ describe MediaPipeline::DAL::AWS::DataAccess do
   end
 
   it 'should return an instance of DataAccess' do
-    data_access = MediaPipeline::DAL::AWS::DataAccess.new(MediaPipeline::DAL::AWS::DataAccessContext.new)
-    expect(data_access).to be_an_instance_of(MediaPipeline::DAL::AWS::DataAccess)
+    data_access = MediaPipeline::DataAccess.new(MediaPipeline::DataAccessContext.new)
+    expect(data_access).to be_an_instance_of(MediaPipeline::DataAccess)
   end
 
   it 'should return a hashtable of s3 options' do
-    data_access = MediaPipeline::DAL::AWS::DataAccess.new(MediaPipeline::DAL::AWS::DataAccessContext.new)
+    data_access = MediaPipeline::DataAccess.new(MediaPipeline::DataAccessContext.new)
     expect(data_access.context.s3_opts).to be_an_instance_of(Hash)
   end
 
   it 'should return a hashtable of ddb options' do
-    data_access = MediaPipeline::DAL::AWS::DataAccess.new(MediaPipeline::DAL::AWS::DataAccessContext.new)
+    data_access = MediaPipeline::DataAccess.new(MediaPipeline::DataAccessContext.new)
     expect(data_access.context.ddb_opts).to be_an_instance_of(Hash)
   end
 

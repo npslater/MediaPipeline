@@ -8,8 +8,8 @@ describe MediaPipeline::FileProcessor do
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
   let!(:data_access) {
-    MediaPipeline::DAL::AWS::DataAccess.new(
-        MediaPipeline::DAL::AWS::DataAccessContext.new
+    MediaPipeline::DataAccess.new(
+        MediaPipeline::DataAccessContext.new
         .configure_s3(s3,
                       config['s3']['bucket'],
                       :archive_prefix => config['s3']['archive_prefix'],

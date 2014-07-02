@@ -184,8 +184,8 @@ module MediaPipeline
     private
 
     def init_data_access(config)
-      data_access =  MediaPipeline::DAL::AWS::DataAccess.new(
-          MediaPipeline::DAL::AWS::DataAccessContext.new
+      data_access =  MediaPipeline::DataAccess.new(
+          MediaPipeline::DataAccessContext.new
           .configure_s3(AWS::S3.new(region:config['aws']['region']),
                         config['s3']['bucket'],
                         :archive_prefix => config['s3']['archive_prefix'],
