@@ -194,7 +194,8 @@ module MediaPipeline
                         :transcode_output_prefix => config['s3']['transcode_output_prefix'])
           .configure_ddb(AWS::DynamoDB.new(region:config['aws']['region']),
                          config['db']['file_table'],
-                         config['db']['archive_table'])
+                         config['db']['archive_table'],
+                         AWS::DynamoDB::Client.new(api_version:'2012-08-10', region:config['aws']['region']))
           .configure_sqs(AWS::SQS.new(region:config['aws']['region']),
                          config['sqs']['transcode_queue'],
                          config['sqs']['id3tag_queue'],

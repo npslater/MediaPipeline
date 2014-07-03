@@ -91,4 +91,23 @@ module AWSHelper
       end
     end
   end
+
+  def save_media_file(file, data_access)
+    mf = MediaPipeline::MediaFile.new(file)
+    archive_key = File.dirname(mf.file)
+    data_access.save_media_file(mf)
+  end
+
+  def prepare_transcode_output(key, file, data_access, archive_key, mp3_file)
+    config = config_file
+    save_media_file(file, data_access)
+
+    data_access.save_transcode_input_key(archive_key, key)
+    data_access.write_cover_art(MediaPipeline::MediaFile.new(file))
+
+    object = data_access.context.s3_opts[:s3].buckets[data_access.context.s3_opts[:bucket_name]].objects["#{config['s3']['transcode_output_prefix']}#{File.basename(file, '.m4a')}.mp3"]
+    File.open(mp3_file, 'r') do | input |
+      object.write(input)
+    end
+  end
 end

@@ -1,9 +1,9 @@
 development:
   local:
-    archive_dir: /Users/slatern/temp/archive
-    download_dir: /Users/slatern/temp/download
-    cover_art_dir: /Users/slatern/temp/cover_art
-    media_files_dir: /Users/slatern/temp/m4a
+    archive_dir: /Users/nslater/temp/archive
+    download_dir: /Users/nslater/temp/download
+    cover_art_dir: /Users/nslater/temp/cover_art
+    media_files_dir: /Users/nslater/Music/sample
     rar_path: /usr/bin/rar
   aws:
     region: us-west-2
@@ -13,6 +13,7 @@ development:
     transcode_input_prefix: input/
     transcode_output_prefix: output/
     cover_art_prefix: cover_art/
+    tagged_output_prefix: tagged/
     concurrent_connections: 2
   db:
     file_table: media_file_dev
@@ -43,6 +44,7 @@ test:
     transcode_input_prefix: input/
     transcode_output_prefix: output/
     cover_art_prefix: cover_art/
+    tagged_output_prefix: tagged/
     concurrent_connections: 2
   db:
     file_table: media_file_test
@@ -52,7 +54,6 @@ test:
     id3tag_queue: id3tag_test
     cloudplayer_upload_queue: cloudplayer_test
   transcoder:
-    pipeline_name: ALAC_to_MP3
     preset_id: 1351620000001-300010
     output_file_ext: mp3
   sns:
@@ -73,6 +74,7 @@ production:
     transcode_input_prefix: input/
     transcode_output_prefix: output/
     cover_art_prefix: cover_art/
+    tagged_output_prefix: tagged/
     concurrent_connections: 2
   db:
     file_table: media_file
@@ -83,7 +85,6 @@ production:
     id3tag_queue: id3tag
     cloudplayer_upload_queue: cloudplayer
   transcoder:
-     pipeline_name: ALAC_to_MP3
      preset_id: 1351620000001-300010
      output_file_ext: mp3
   sns:

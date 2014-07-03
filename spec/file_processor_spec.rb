@@ -18,7 +18,8 @@ describe MediaPipeline::FileProcessor do
                       :transcode_output_prefix => config['s3']['transcode_output_prefix'])
         .configure_ddb(ddb,
                        config['db']['file_table'],
-                       config['db']['archive_table'])
+                       config['db']['archive_table'],
+                       AWS::DynamoDB::Client.new(api_version:'2012-08-10', region:config['aws']['region']))
         .configure_sqs(sqs,
                        config['sqs']['transcode_queue'],
                        config['sqs']['id3tag_queue'],

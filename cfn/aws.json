@@ -76,6 +76,10 @@
                     {
                         "AttributeName": "local_dir",
                         "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "transcode_input_key",
+                        "AttributeType": "S"
                     }
                 ],
                 "ProvisionedThroughput": {
@@ -98,6 +102,22 @@
                         "KeySchema": [
                             {
                                 "AttributeName": "local_dir",
+                                "KeyType": "HASH"
+                            }
+                        ],
+                        "Projection": {
+                            "ProjectionType": "KEYS_ONLY"
+                        },
+                        "ProvisionedThroughput": {
+                            "ReadCapacityUnits": "5",
+                            "WriteCapacityUnits": "5"
+                        }
+                    },
+                    {
+                        "IndexName": "idx_transcode_input_key",
+                        "KeySchema": [
+                            {
+                                "AttributeName": "transcode_input_key",
                                 "KeyType": "HASH"
                             }
                         ],
@@ -163,9 +183,45 @@
         "TranscodeTopic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
-                "TopicName": {"Ref": "TranscodeTopicName"}
+                "TopicName": {"Ref": "TranscodeTopicName"},
+                "Subscription": [
+                    { "Endpoint" : { "Fn::GetAtt" : [ "ID3TagQueue", "Arn" ] }, "Protocol" : "sqs" }
+                ]
             }
-
+        },
+        "TranscodeNotificationQueuePolicy": {
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "transcodeNotification",
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "1",
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": "*"
+                            },
+                            "Action": ["sqs:SendMessage"],
+                            "Resource": {
+                                "Fn::GetAtt": ["ID3TagQueue", "Arn"]
+                            },
+                            "Condition": {
+                                "ArnEquals": {
+                                    "aws:sourceArn": {
+                                        "Ref": "TranscodeTopic"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                "Queues": [
+                    {
+                        "Ref": "ID3TagQueue"
+                    }
+                ]
+            }
         },
         "TranscoderRole": {
             "Type": "AWS::IAM::Role",
@@ -193,6 +249,127 @@
                                 {"Sid":"2","Effect":"Allow","Action":"sns:Publish","Resource":{"Ref": "TranscodeTopic"}},
                                 {"Sid":"3","Effect":"Deny","Action":["s3:*Policy*","sns:*Permission*","sns:*Delete*","s3:*Delete*","sns:*Remove*"],"Resource":"*"}
                             ]
+                        }
+                    }
+                ]
+            }
+        },
+        "TranscodeWorkerRole":
+        {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [ "ec2.amazonaws.com" ]
+                            },
+                            "Action": [ "sts:AssumeRole" ]
+                        }
+                    ]
+                },
+                "Path": "/mediapipeline/",
+                "Policies": [
+                    {
+                        "PolicyName": "worker",
+                        "PolicyDocument":
+                        {
+                            "Statement": [
+                                {
+                                    "Resource": {"Fn::Join": ["", ["arn:aws:s3:::", {"Ref": "S3Bucket"},"*"]]},
+                                    "Action": [
+                                        "s3:ListBucket",
+                                        "s3:Put*",
+                                        "s3:Get*",
+                                        "s3:*MultipartUpload*"
+                                    ],
+                                    "Sid": "1",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Resource":  {"Fn::GetAtt": ["TranscodeQueue", "Arn"]},
+                                    "Action": [
+                                        "sqs:ReceiveMessage",
+                                        "sqs:DeleteMessage",
+                                        "sqs:SendMessage",
+                                        "sqs:GetQueueUrl",
+                                        "sqs:ListQueues",
+                                        "sqs:ChangeMessageVisibility"
+                                    ],
+                                    "Sid": "2",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Resource":  {"Fn::GetAtt": ["ID3TagQueue", "Arn"]},
+                                    "Action": [
+                                        "sqs:ReceiveMessage",
+                                        "sqs:DeleteMessage",
+                                        "sqs:SendMessage",
+                                        "sqs:GetQueueUrl",
+                                        "sqs:ListQueues",
+                                        "sqs:ChangeMessageVisibility"
+                                    ],
+                                    "Sid": "3",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Resource":  {"Fn::GetAtt": ["CloudPlayerUploadQueue", "Arn"]},
+                                    "Action": [
+                                        "sqs:ReceiveMessage",
+                                        "sqs:DeleteMessage",
+                                        "sqs:SendMessage",
+                                        "sqs:GetQueueUrl",
+                                        "sqs:ListQueues",
+                                        "sqs:ChangeMessageVisibility"
+                                    ],
+                                    "Sid": "4",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBFileTable"}]]},
+                                    "Action": [
+                                        "dynamodb:BatchGetItem",
+                                        "dynamodb:BatchWriteItem",
+                                        "dynamodb:DescribeTable",
+                                        "dynamodb:Query",
+                                        "dynamodb:PutItem",
+                                        "dynamodb:GetItem",
+                                        "dynamodb:Scan",
+                                        "dynamodb:UpdateItem",
+                                        "dynamodb:ListTables"
+                                    ],
+                                    "Sid": "5",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBArchiveTable"}]]},
+                                    "Action": [
+                                        "dynamodb:BatchGetItem",
+                                        "dynamodb:BatchWriteItem",
+                                        "dynamodb:DescribeTable",
+                                        "dynamodb:Query",
+                                        "dynamodb:PutItem",
+                                        "dynamodb:GetItem",
+                                        "dynamodb:Scan",
+                                        "dynamodb:UpdateItem",
+                                        "dynamodb:ListTables"
+                                    ],
+                                    "Sid": "6",
+                                    "Effect": "Allow"
+                                },
+                                {
+                                    "Resource": "*",
+                                    "Action": [
+                                        "elastictranscoder:ListPipelines",
+                                        "elastictranscoder:CreateJob"
+                                    ],
+                                    "Sid": "7",
+                                    "Effect": "Allow"
+                                }
+                            ],
+                            "Version": "2008-10-17"
                         }
                     }
                 ]

@@ -45,6 +45,7 @@ module MediaPipeline
     end
 
     def transcode(archive_key)
+      @logger.info(self.class) {LogMessage.new('transcode.begin', {key:archive_key}, 'Started processing files for transcode jobs').to_s}
 
       urls = @data_access.fetch_archive_urls(archive_key)
       @logger.info(self.class) { LogMessage.new('data_access.fetch_archive_urls', {key:archive_key,urls:urls}, 'Fetched archive URLs from DynamoDB').to_s}
@@ -102,12 +103,42 @@ module MediaPipeline
         i = i+1
         @logger.info(self.class) {LogMessage.new('transcoder.submit_job', {input_key:key, output_key:out_key}, 'Submitted job to transcoding pipeline').to_s}
       end
+      @logger.info(self.class) {LogMessage.new('transcode.end', {key:archive_key}, 'Finished processing files for transcode jobs').to_s}
     end
 
-    def tag_output
+    def process_transcoder_output(input_key, output_key)
+      @logger.info(self.class) {LogMessage.new('process_transcoder_output.start', {input_key:input_key, output_key:output_key}, 'Started processing transcoder output file').to_s}
+
+      item = @data_access.save_transcode_output_key(input_key, output_key)
+      @logger.info(self.class) {LogMessage.new('data_access.save_transcode_output_key', {item:item.hash_value, input_key:input_key, output_key:output_key}, 'Fetched database item from DynamoDB').to_s}
+
+      tag_data = {
+          'artist' => item.attributes['artist'],
+          'album' => item.attributes['album'],
+          'genre' => item.attributes['genre'],
+          'title' => item.attributes['title'],
+          'disk' => item.attributes['disk'].nil? ? 0 : item.attributes['disk'].to_i,
+          'track' => item.attributes['track'].nil? ? 0 : item.attributes['track'].to_i,
+          'year' => item.attributes['year'].nil? ? 0 : item.attributes['year'].to_i,
+          'comments' => item.attributes['comments']
+      }
+      @logger.info(self.class) {LogMessage.new('process_transcoder_output.prepare_tag_data', {tag_data:tag_data}, 'Read tag data from database item').to_s}
+
+      uri = URI(item.attributes['cover_art_s3_object'])
+      cover_art_key = "#{File.basename(File.dirname(uri.path))}/#{File.basename(uri.path)}"
+      object = @data_access.context.s3_opts[:s3].buckets[@data_access.context.s3_opts[:bucket_name]].objects[cover_art_key]
+      tag_data['cover_art'] = object.read
+      @logger.info(self.class) {LogMessage.new('process_transcoder_output.read_cover_art', {cover_art_key:cover_art_key}, 'Read cover art from S3 object').to_s}
+
+      file = @data_access.read_transcoder_output_object(output_key, @archive_context.download_dir)
+      @logger.info(self.class) {LogMessage.new('data_access.read_transcoder_output_object', {output_key:output_key, download_dir:@archive_context.download_dir}, 'Read transcoder output object from S3').to_s}
+
+      media_file = MediaFile.new(file)
+      media_file.write_tag(tag_data)
+      @logger.info(self.class) {LogMessage.new('media_file.write_tag', {file:file}, 'Wrote ID3 tags').to_s}
+
 
     end
-
   end
 
 end

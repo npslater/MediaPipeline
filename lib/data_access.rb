@@ -38,7 +38,7 @@ module MediaPipeline
       end
       tag_data = media_file.tag_data
       item = @file_table.items.create('local_file_path' =>File.absolute_path(media_file.file),
-                                 'local_dir' => File.dirname(File.absolute_path(media_file.file)))
+                                      'local_dir' => File.dirname(File.absolute_path(media_file.file)))
       item.attributes.set(tag_data)
     end
 
@@ -116,6 +116,17 @@ module MediaPipeline
       file
     end
 
+    def read_transcoder_output_object(key, download_dir)
+      file = "#{download_dir}/#{File.basename(key)}"
+      object = @context.s3_opts[:s3].buckets[@context.s3_opts[:bucket_name]].objects[key]
+      File.open(file, 'wb') do | file |
+        object.read do | chunk |
+          file.write(chunk)
+        end
+      end
+      file
+    end
+
     def write_transcoder_input(input_files=[])
       keys = []
       input_files.each do | input |
@@ -132,14 +143,71 @@ module MediaPipeline
       keys
     end
 
-    def save_transcode_info(archive_key, input_key, output_key)
-      if @archive_table.nil?
-        init_archive_table
-      end
+    def write_tagged_output(file, item)
+      key = "#{@context.s3_opts[:tagged_output_prefix]}#{SecureRandom.uuid[0..6]}_#{File.basename(file)}"
+    end
+
+    def find_media_file_item(index_name, key_conditions={})
       if @file_table.nil?
         init_file_table
       end
+      @context.ddb_opts[:client].query(table_name: @context.ddb_opts[:file_table_name],
+                                                    index_name: index_name,
+                                                    key_conditions:key_conditions
+      )
 
+    end
+
+    def find_media_file_item_by_input_key(transcode_input_key)
+      response = find_media_file_item('idx_transcode_input_key',
+                                      {
+                                          'transcode_input_key' =>
+                                              {
+                                                  comparison_operator:'EQ',
+                                                  attribute_value_list:[
+                                                      {'s' => transcode_input_key}
+                                                  ]
+                                              }
+                                      }
+      )
+      #puts response
+      return fetch_media_file_item(response.data[:member].first['local_file_path'][:s])
+
+    end
+
+    def find_media_file_item_by_dir(archive_key, file)
+      response = find_media_file_item('idx_local_dir',
+                                     {
+                                        'local_dir' =>
+                                            {
+                                                comparison_operator:'EQ',
+                                                attribute_value_list:[
+                                                    {'s' => archive_key}
+                                                ]
+                                            }
+                                      }
+      )
+      response.data[:member].each do | result |
+        #puts result
+        if File.basename(result['local_file_path'][:s]).eql?(File.basename(file))
+          return fetch_media_file_item(result['local_file_path'][:s])
+        end
+      end
+      nil
+    end
+
+    def save_transcode_input_key(archive_key, input_key)
+      item = find_media_file_item_by_dir(archive_key, File.basename(input_key))
+      raise ArgumentError, "Unable to find matching database item for #{archive_key}, #{input_key}" if item.nil?
+      item.attributes.set(transcode_input_key: input_key)
+      item
+    end
+
+    def save_transcode_output_key(input_key, output_key)
+      item = find_media_file_item_by_input_key(input_key)
+      raise ArgumentError, "Unable to find matching database item for #{input_key}" if item.nil?
+      item.attributes.set(transcode_output_key: output_key)
+      item
     end
   end
 end

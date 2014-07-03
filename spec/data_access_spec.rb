@@ -13,16 +13,16 @@ describe MediaPipeline::DataAccess do
   let!(:archive_key) { File.dirname(file) }
   let!(:data_access) {
     MediaPipeline::DataAccess.new(
-      MediaPipeline::DataAccessContext.new
-                                               .configure_s3(s3,
-                                                             config['s3']['bucket'],
-                                                             :archive_prefix => config['s3']['archive_prefix'],
-                                                             :cover_art_prefix => config['s3']['cover_art_prefix'],
-                                                             :transcode_input_prefix => config['s3']['transcode_input_prefix'],
-                                                             :transcode_output_prefix => config['s3']['transcode_output_prefix'])
+      MediaPipeline::DataAccessContext.new.configure_s3(s3,
+                                                        config['s3']['bucket'],
+                                                        :archive_prefix => config['s3']['archive_prefix'],
+                                                        :cover_art_prefix => config['s3']['cover_art_prefix'],
+                                                        :transcode_input_prefix => config['s3']['transcode_input_prefix'],
+                                                        :transcode_output_prefix => config['s3']['transcode_output_prefix'])
                                                .configure_ddb(ddb,
                                                               config['db']['file_table'],
-                                                              config['db']['archive_table'])
+                                                              config['db']['archive_table'],
+                                                              AWS::DynamoDB::Client.new(api_version:'2012-08-10', region:config['aws']['region']))
                                                .configure_sqs(sqs,
                                                               config['sqs']['transcode_queue'],
                                                               config['sqs']['id3tag_queue'],
@@ -118,5 +118,34 @@ describe MediaPipeline::DataAccess do
     keys.each do | key |
       expect(s3.buckets[config['s3']['bucket']].objects[key].exists?).to be_truthy
     end
+  end
+
+  it 'should find the media file item by directory' do
+    save_media_file(file, data_access)
+    item = data_access.find_media_file_item_by_dir(archive_key, file)
+    expect(item).not_to be_nil
+  end
+
+  it 'should save the transcode input key' do
+    save_media_file(file, data_access)
+    item = data_access.save_transcode_input_key(archive_key, "#{MediaPipeline::MediaFile.object_key(config['s3']['transcode_input_prefix'],file)}")
+    expect(item.attributes['transcode_input_key']).not_to be_nil
+  end
+
+  it 'should find the media file item by transcode input key' do
+    save_media_file(file, data_access)
+    key =  MediaPipeline.MediaFile.object_key(config['s3']['transcode_input_prefix'],file)
+    data_access.save_transcode_input_key(archive_key, key)
+    item = data_access.find_media_file_item_by_input_key(key)
+    expect(item).not_to be_nil
+  end
+
+  it 'should save the transcode output key' do
+    save_media_file(file, data_access)
+    input_key = MediaPipeline.MediaFile.object_key(config['s3']['transcode_input_prefix'],file)
+    data_access.save_transcode_input_key(archive_key, input_key)
+    item = data_access.save_transcode_output_key(input_key, MediaPipeline.MediaFile.object_key(config['s3']['transcode_output_prefix'],
+                                                                                               File.join(File.dirname(file), "#{File.basename(file, '.m4a')}.mp3")))
+    expect(item.attributes['transcode_output_key']).not_to be_nil
   end
 end

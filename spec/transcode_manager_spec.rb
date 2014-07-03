@@ -5,6 +5,7 @@ describe MediaPipeline::TranscodeManager do
 
   let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config }
   let!(:file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.m4a").first }
+  let!(:mp3_file) { Dir.glob("#{config['local']['media_files_dir']}/**/*.mp3").first }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
@@ -21,7 +22,8 @@ describe MediaPipeline::TranscodeManager do
                                                 :transcode_output_prefix => config['s3']['transcode_output_prefix'])
                                   .configure_ddb(ddb,
                                                  config['db']['file_table'],
-                                                 config['db']['archive_table'])
+                                                 config['db']['archive_table'],
+                                                 AWS::DynamoDB::Client.new(api_version:'2012-08-10', region:config['aws']['region']))
                                   .configure_sqs(sqs,
                                                  config['sqs']['transcode_queue'],
                                                  config['sqs']['id3tag_queue'],
@@ -54,6 +56,14 @@ describe MediaPipeline::TranscodeManager do
   it 'should prepare the input files to the transcoding pipeline job' do
     save_archive(archive_key, config, file, data_access)
     transcode_mgr.transcode(archive_key)
+  end
+
+
+  it 'should process the transcode output' do
+    key = "#{config['s3']['transcode_input_prefix']}#{File.basename(file)}"
+    prepare_transcode_output(key, file, data_access, archive_key, mp3_file)
+    transcode_mgr.process_transcoder_output(key, "#{config['s3']['transcode_output_prefix']}#{File.basename(key, '.m4a')}.mp3")
+
   end
 
 end
