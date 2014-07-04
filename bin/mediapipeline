@@ -19,6 +19,6 @@ require_relative '../lib/log_message'
 require_relative '../lib/archive_context'
 require_relative '../lib/transcoding_context'
 require_relative '../lib/directory_filter'
-require_relative '../lib/ObjectKeyUtils'
+require_relative '../lib/object_key_utils'
 
 MediaPipeline::CLI.start(ARGV)
