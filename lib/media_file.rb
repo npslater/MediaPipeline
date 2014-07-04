@@ -102,9 +102,5 @@ module MediaPipeline
     def write_cover_art()
       yield
     end
-
-    def MediaFile.object_key(prefix, file)
-      "#{prefix}#{SecureRandom.uuid[0..6]}/#{File.basename(file)}"
-    end
   end
 end

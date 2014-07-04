@@ -44,14 +44,14 @@ module MediaPipeline
 
     def write_cover_art(media_file)
       cover_art_data = media_file.cover_art
-      object = @context.s3_opts[:s3].buckets[@context.s3_opts[:bucket_name]].objects["#{@context.s3_opts[:cover_art_prefix]}#{SecureRandom.uuid}"]
+      object = @context.s3_opts[:s3].buckets[@context.s3_opts[:bucket_name]].objects[ObjectKeyUtils.cover_art_object_key(@context.s3_opts[:cover_art_prefix])]
       if @concurrency_mgr.nil?
         object.write(cover_art_data)
       else
         @concurrency_mgr.run_async {object.write(cover_art_data)}
       end
       item = fetch_media_file_item(media_file.file)
-      item.attributes.set('cover_art_s3_object' => "s3://#{@context.s3_opts[:bucket_name]}/#{object.key}")
+      item.attributes.set('cover_art_key' => object.key)
       object.key
     end
 
@@ -59,7 +59,7 @@ module MediaPipeline
       #upload parts to S3
       keys = []
       archive_parts.each do | part |
-        key = "#{@context.s3_opts[:archive_prefix]}#{File.basename(part)}"
+        key = ObjectKeyUtils.archive_object_key(@context.s3_opts[:archive_prefix], File.basename(part))
         keys.push(key)
         File.open(part, 'r') do | file |
           if @concurrency_mgr.nil?
@@ -82,7 +82,7 @@ module MediaPipeline
       i = 0
       keys.each do | key |
         i = i+1
-        attributes["part#{i}"] = "s3://#{@context.s3_opts[:bucket_name]}/#{key}"
+        attributes["part#{i}"] = key
       end
      @archive_table.items.create(attributes)
     end
@@ -94,7 +94,7 @@ module MediaPipeline
       message
     end
 
-    def fetch_archive_urls(archive_key)
+    def fetch_archive_part_keys(archive_key)
       if @archive_table.nil?
         init_archive_table
       end
@@ -102,12 +102,9 @@ module MediaPipeline
       item.attributes.to_hash.select { |attr| attr.include?('part')}.values
     end
 
-    def read_archive_object(url, download_dir)
-      uri = URI(url)
-      bucket = uri.host
-      key = "#{File.basename(File.dirname(uri.path))}/#{File.basename(uri.path)}"
+    def read_archive_object(key, download_dir)
       file = "#{download_dir}/#{File.basename(key)}"
-      object = @context.s3_opts[:s3].buckets[bucket].objects[key]
+      object = @context.s3_opts[:s3].buckets[@context.s3_opts[:bucket_name]].objects[key]
       File.open(file, 'wb') do | file |
         object.read do | chunk |
           file.write(chunk)
@@ -130,7 +127,8 @@ module MediaPipeline
     def write_transcoder_input(input_files=[])
       keys = []
       input_files.each do | input |
-        key = "#{@context.s3_opts[:transcode_input_prefix]}#{File.basename(input)}"
+        key = ObjectKeyUtils.file_object_key(@context.s3_opts[:transcode_input_prefix], File.basename(input))
+        #key = "#{@context.s3_opts[:transcode_input_prefix]}#{File.basename(input)}"
         keys.push(key)
         File.open(input, 'r') do | file |
           if @concurrency_mgr.nil?
@@ -143,8 +141,17 @@ module MediaPipeline
       keys
     end
 
-    def write_tagged_output(file, item)
-      key = "#{@context.s3_opts[:tagged_output_prefix]}#{SecureRandom.uuid[0..6]}_#{File.basename(file)}"
+    def write_tagged_output(tagged_file)
+      key = ObjectKeyUtils.file_object_key(@context.s3_opts[:tagged_output_prefix], File.basename(tagged_file))
+      object = @context.s3_opts[:s3].buckets[@context.s3_opts[:bucket_name]].objects[key]
+      File.open(tagged_file, 'r') do | file |
+        if @concurrency_mgr.nil?
+          object.write(file)
+        else
+          @concurrency_mgr.run_async { object.write(file) }
+        end
+      end
+      key
     end
 
     def find_media_file_item(index_name, key_conditions={})
@@ -207,6 +214,13 @@ module MediaPipeline
       item = find_media_file_item_by_input_key(input_key)
       raise ArgumentError, "Unable to find matching database item for #{input_key}" if item.nil?
       item.attributes.set(transcode_output_key: output_key)
+      item
+    end
+
+    def save_tagged_output_key(input_key, tagged_output_key)
+      item = find_media_file_item_by_input_key(input_key)
+      raise ArgumentError, "Unable to find matching database item for #{input_key}" if item.nil?
+      item.attributes.set(tagged_output_key: tagged_output_key)
       item
     end
   end

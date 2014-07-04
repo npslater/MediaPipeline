@@ -105,7 +105,8 @@ module AWSHelper
     data_access.save_transcode_input_key(archive_key, key)
     data_access.write_cover_art(MediaPipeline::MediaFile.new(file))
 
-    object = data_access.context.s3_opts[:s3].buckets[data_access.context.s3_opts[:bucket_name]].objects["#{config['s3']['transcode_output_prefix']}#{File.basename(file, '.m4a')}.mp3"]
+    out_key = MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['transcode_output_prefix'], "#{File.basename(file, '.m4a')}.mp3")
+    object = data_access.context.s3_opts[:s3].buckets[data_access.context.s3_opts[:bucket_name]].objects[out_key]
     File.open(mp3_file, 'r') do | input |
       object.write(input)
     end

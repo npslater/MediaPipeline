@@ -47,18 +47,18 @@ module MediaPipeline
     def transcode(archive_key)
       @logger.info(self.class) {LogMessage.new('transcode.begin', {key:archive_key}, 'Started processing files for transcode jobs').to_s}
 
-      urls = @data_access.fetch_archive_urls(archive_key)
-      @logger.info(self.class) { LogMessage.new('data_access.fetch_archive_urls', {key:archive_key,urls:urls}, 'Fetched archive URLs from DynamoDB').to_s}
+      part_keys = @data_access.fetch_archive_part_keys(archive_key)
+      @logger.info(self.class) { LogMessage.new('data_access.fetch_archive_urls', {key:archive_key,archive_parts:part_keys}, 'Fetched archive URLs from DynamoDB').to_s}
 
       dir = File.join(@archive_context.download_dir, SecureRandom.uuid)
       Dir.mkdir(dir)
       @logger.info(self.class) { LogMessage.new('extract_archive.create_dir', {directory:dir}, 'Created directory to extract archive').to_s }
 
       archive = nil
-      urls.each do | url |
-        file = @data_access.read_archive_object(url, dir)
+      part_keys.each do | part |
+        file = @data_access.read_archive_object(part, dir)
         archive = file unless archive
-        @logger.info(self.class) { LogMessage.new('data_access.read_archive_object', {url:url, directory:dir, file:file},'Downloaded archive file from S3').to_s}
+        @logger.info(self.class) { LogMessage.new('data_access.read_archive_object', {part:part, directory:dir, file:file},'Downloaded archive file from S3').to_s}
       end
 
       cmd = "#{@archive_context.rar_path} x #{archive}"
@@ -96,12 +96,17 @@ module MediaPipeline
       #for each file, submit a job to the ElasticTranscoder pipeline
       i = 0
       keys.each do | key |
-        out_key = "#{File.basename(key, @context.input_ext)}#{@context.output_ext}"
+        out_key = ObjectKeyUtils.file_object_key('', "#{File.basename(key, @context.input_ext)}#{@context.output_ext}")
+        #out_key = "#{File.basename(key, @context.input_ext)}#{@context.output_ext}"
         create_job(key, out_key, @data_access.context.s3_opts[:transcode_output_prefix])
         wait_time = [(i^2) * 0.010, 1].min
         sleep wait_time
         i = i+1
         @logger.info(self.class) {LogMessage.new('transcoder.submit_job', {input_key:key, output_key:out_key}, 'Submitted job to transcoding pipeline').to_s}
+
+        item = @data_access.save_transcode_input_key(archive_key, key)
+        @logger.info(self.class) {LogMessage.new('data_access.save_transcode_input_key', {item:item.hash_value, input_key:key}, 'Saved transcode input key to DynamoDB table item').to_s}
+
       end
       @logger.info(self.class) {LogMessage.new('transcode.end', {key:archive_key}, 'Finished processing files for transcode jobs').to_s}
     end
@@ -110,7 +115,7 @@ module MediaPipeline
       @logger.info(self.class) {LogMessage.new('process_transcoder_output.start', {input_key:input_key, output_key:output_key}, 'Started processing transcoder output file').to_s}
 
       item = @data_access.save_transcode_output_key(input_key, output_key)
-      @logger.info(self.class) {LogMessage.new('data_access.save_transcode_output_key', {item:item.hash_value, input_key:input_key, output_key:output_key}, 'Fetched database item from DynamoDB').to_s}
+      @logger.info(self.class) {LogMessage.new('data_access.save_transcode_output_key', {item:item.hash_value, input_key:input_key, output_key:output_key}, 'Saved transcode output key to DynamoDB table item').to_s}
 
       tag_data = {
           'artist' => item.attributes['artist'],
@@ -124,8 +129,7 @@ module MediaPipeline
       }
       @logger.info(self.class) {LogMessage.new('process_transcoder_output.prepare_tag_data', {tag_data:tag_data}, 'Read tag data from database item').to_s}
 
-      uri = URI(item.attributes['cover_art_s3_object'])
-      cover_art_key = "#{File.basename(File.dirname(uri.path))}/#{File.basename(uri.path)}"
+      cover_art_key = item.attributes['cover_art_key']
       object = @data_access.context.s3_opts[:s3].buckets[@data_access.context.s3_opts[:bucket_name]].objects[cover_art_key]
       tag_data['cover_art'] = object.read
       @logger.info(self.class) {LogMessage.new('process_transcoder_output.read_cover_art', {cover_art_key:cover_art_key}, 'Read cover art from S3 object').to_s}
@@ -137,7 +141,13 @@ module MediaPipeline
       media_file.write_tag(tag_data)
       @logger.info(self.class) {LogMessage.new('media_file.write_tag', {file:file}, 'Wrote ID3 tags').to_s}
 
+      tagged_output_key = @data_access.write_tagged_output(media_file.file)
+      @logger.info(self.class) {LogMessage.new('data_access.write_tagged_output', {file:media_file.file, key:tagged_output_key}, 'Wrote tagged output file to S3').to_s}
 
+      @data_access.save_tagged_output_key(input_key, tagged_output_key)
+      @logger.info(self.class) {LogMessage.new('data_access.save_tagged_output_key', {item:item.hash_value, input_key: input_key, output_key:tagged_output_key}, 'Saved tagged output key to DynamoDB item').to_s}
+
+      @logger.info(self.class) {LogMessage.new('process_transcoder_output.end', {input_key:input_key, output_key:output_key}, 'Finished processing transcoder output file').to_s}
     end
   end
 

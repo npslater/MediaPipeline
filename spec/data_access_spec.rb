@@ -99,17 +99,17 @@ describe MediaPipeline::DataAccess do
     queue.poll(:initial_timeout=>2, :idle_timeout=>2) { |msg| expect(msg.body.include?(archive_key)).to be_truthy }
   end
 
-  it 'should fetch the archive urls from dynamoDB' do
+  it 'should fetch the archive part keys from dynamoDB' do
     save_archive(archive_key, config, file, data_access)
-    urls = data_access.fetch_archive_urls(archive_key)
+    urls = data_access.fetch_archive_part_keys(archive_key)
     expect(urls.count).to be > 0
   end
 
   it 'should read the archive from S3 and write it to disk' do
     save_archive(archive_key, config, file, data_access)
-    urls = data_access.fetch_archive_urls(archive_key)
-    urls.each do | url |
-      data_access.read_archive_object(url, config['local']['download_dir'])
+    keys = data_access.fetch_archive_part_keys(archive_key)
+    keys.each do | key |
+      data_access.read_archive_object(key, config['local']['download_dir'])
     end
   end
 
@@ -128,13 +128,13 @@ describe MediaPipeline::DataAccess do
 
   it 'should save the transcode input key' do
     save_media_file(file, data_access)
-    item = data_access.save_transcode_input_key(archive_key, "#{MediaPipeline::MediaFile.object_key(config['s3']['transcode_input_prefix'],file)}")
+    item = data_access.save_transcode_input_key(archive_key, "#{MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['transcode_input_prefix'],File.basename(file))}")
     expect(item.attributes['transcode_input_key']).not_to be_nil
   end
 
   it 'should find the media file item by transcode input key' do
     save_media_file(file, data_access)
-    key =  MediaPipeline.MediaFile.object_key(config['s3']['transcode_input_prefix'],file)
+    key =  MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['transcode_input_prefix'],File.basename(file))
     data_access.save_transcode_input_key(archive_key, key)
     item = data_access.find_media_file_item_by_input_key(key)
     expect(item).not_to be_nil
@@ -142,10 +142,17 @@ describe MediaPipeline::DataAccess do
 
   it 'should save the transcode output key' do
     save_media_file(file, data_access)
-    input_key = MediaPipeline.MediaFile.object_key(config['s3']['transcode_input_prefix'],file)
+    input_key = MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['transcode_input_prefix'],File.basename(file))
     data_access.save_transcode_input_key(archive_key, input_key)
-    item = data_access.save_transcode_output_key(input_key, MediaPipeline.MediaFile.object_key(config['s3']['transcode_output_prefix'],
-                                                                                               File.join(File.dirname(file), "#{File.basename(file, '.m4a')}.mp3")))
+    item = data_access.save_transcode_output_key(input_key, MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['transcode_output_prefix'], "#{File.basename(file, '.m4a')}.mp3"))
     expect(item.attributes['transcode_output_key']).not_to be_nil
+  end
+
+  it 'should save the tagged output key' do
+    save_media_file(file, data_access)
+    input_key = MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['transcode_input_prefix'],File.basename(file))
+    data_access.save_transcode_input_key(archive_key, input_key)
+    item = data_access.save_tagged_output_key(input_key, MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['tagged_output_prefix'], "#{File.basename(file, '.m4a')}.mp3"))
+    expect(item.attributes['tagged_output_key']).not_to be_nil
   end
 end

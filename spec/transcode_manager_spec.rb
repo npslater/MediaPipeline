@@ -60,7 +60,7 @@ describe MediaPipeline::TranscodeManager do
 
 
   it 'should process the transcode output' do
-    key = "#{config['s3']['transcode_input_prefix']}#{File.basename(file)}"
+    key = MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['transcode_input_prefix'], File.basename(file))
     prepare_transcode_output(key, file, data_access, archive_key, mp3_file)
     transcode_mgr.process_transcoder_output(key, "#{config['s3']['transcode_output_prefix']}#{File.basename(key, '.m4a')}.mp3")
 

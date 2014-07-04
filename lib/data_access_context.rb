@@ -10,7 +10,7 @@ module MediaPipeline
       @sqs_opts = {}
     end
 
-    def configure_s3(s3, bucket_name, archive_prefix:'/archive', cover_art_prefix:'/cover_art', transcode_input_prefix:'/input', transcode_output_prefix:'/output', tagged_output_prefix:'/tagged')
+    def configure_s3(s3, bucket_name, archive_prefix:'archive/', cover_art_prefix:'cover_art/', transcode_input_prefix:'input/', transcode_output_prefix:'output/', tagged_output_prefix:'tagged/')
       @s3_opts[:s3] = s3
       @s3_opts[:bucket_name] = bucket_name
       @s3_opts[:archive_prefix] = archive_prefix
