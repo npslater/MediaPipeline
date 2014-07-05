@@ -328,7 +328,7 @@
                                     "Effect": "Allow"
                                 },
                                 {
-                                    "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBFileTable"}]]},
+                                    "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBFileTable"},"*"]]},
                                     "Action": [
                                         "dynamodb:BatchGetItem",
                                         "dynamodb:BatchWriteItem",
@@ -344,7 +344,7 @@
                                     "Effect": "Allow"
                                 },
                                 {
-                                    "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBArchiveTable"}]]},
+                                    "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBArchiveTable"},"*"]]},
                                     "Action": [
                                         "dynamodb:BatchGetItem",
                                         "dynamodb:BatchWriteItem",

@@ -9,7 +9,7 @@ module MediaPipeline
     class_option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
     class_option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
 
-    desc 'process_files', 'Processes the files in the given directory'
+    desc 'process-files', 'Processes the files in the given directory'
     long_desc <<-LONGDESC
       This command performs the following steps:
 
@@ -127,16 +127,64 @@ module MediaPipeline
       queue = data_access.context.sqs_opts[:sqs].queues.named(data_access.context.sqs_opts[:transcode_queue_name])
       logger.info(self.class) { MediaPipeline::LogMessage.new('transcode.poll_queue', {queue:queue.url, poll_timeout:options[:poll_timeout]}, 'Starting to poll for messages from SQS').to_s}
 
-      queue.poll(idle_timeout:options[:poll_timeout], wait_time_seconds:20) do | msg |
-        logger.info(self.class) { MediaPipeline::LogMessage.new('transcode.receive_message', {message:msg.body}, 'Received message from SQS queue').to_s}
-        begin
+      begin
+        queue.poll(idle_timeout:options[:poll_timeout], wait_time_seconds:20) do | msg |
+          logger.info(self.class) { MediaPipeline::LogMessage.new('transcode.receive_message', {message:msg.body}, 'Received message from SQS queue').to_s}
           transcode_mgr.transcode(JSON.parse(msg.body)['archive_key'])
-        rescue Exception => e
-          logger.error(self.class) { MediaPipeline::LogMessage.new('transcode.error', {error:e.message}, 'Exception when running transcode command').to_s}
-          raise e
         end
+      rescue => e
+        logger.error(self.class) { MediaPipeline::LogMessage.new('transcode.error', {error:e.message}, 'Exception when running transcode command').to_s}
       end
+    end
 
+    desc 'process-output', 'Process the transcoded output files.  Write the ID3 tag to the files and upload the tagged files back to S3'
+    long_desc <<-LONGDESC
+      This command is designed to be run on the worker hosts responsible for processing the transcoded output files.  This command will poll
+      for messages on the ID3 tag queue, download the transoded output files, and tag them using the data stored for each file item in DynamoDB.  In addition,
+      the command will write the cover art to the file using the content stored in S3.
+
+      The command uses long-polling and will poll for the length of time specified by the poll-timeout option (default 60 minutes).  The command will exit when
+      no messages are being returned from the queue and the poll-timeout interval has been reached.
+    LONGDESC
+    option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :poll_timeout, :required=>false, :banner=>'TIMEOUT', :type=>:numeric, :default=>3600, :desc=>'Stop polling after this interval if no messages are being received.'
+    def process_output
+      logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
+      logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
+
+      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
+      concurrency_mgr = MediaPipeline::ConcurrencyManager.new(config['s3']['concurrent_connections'])
+      concurrency_mgr.logger = logger
+
+      data_access = init_data_access(config)
+      data_access.concurrency_mgr = concurrency_mgr
+
+      context = MediaPipeline::TranscodingContext.new(AWS::ElasticTranscoder.new(region:config['aws']['region']),
+                                                      options[:pipeline_name],
+                                                      config['transcoder']['preset_id'],
+                                                      input_ext:options[:input_file_ext],
+                                                      output_ext:config['transcoder']['output_file_ext'])
+
+      archive_context = MediaPipeline::ArchiveContext.new(config['local']['rar_path'], config['local']['archive_dir'], config['local']['download_dir'])
+      transcode_mgr = MediaPipeline::TranscodeManager.new(data_access, context, archive_context, logger:logger)
+
+      queue = data_access.context.sqs_opts[:sqs].queues.named(data_access.context.sqs_opts[:id3_tag_queue_name])
+      logger.info(self.class) { MediaPipeline::LogMessage.new('transcode.poll_queue', {queue:queue.url, poll_timeout:options[:poll_timeout]}, 'Starting to poll for messages from SQS').to_s}
+
+      begin
+        queue.poll(idle_timeout:options[:poll_timeout], wait_time_seconds:20) do | msg |
+          logger.info(self.class) { MediaPipeline::LogMessage.new('transcode.receive_message', {message:msg.body}, 'Received message from SQS queue').to_s}
+          payload = JSON.parse(msg.body)
+          message = JSON.parse(payload['Message'])
+          if message['state'].eql?('COMPLETED')
+            transcode_mgr.process_transcoder_output(message['input']['key'],"#{message['outputKeyPrefix']}#{message['outputs'][0]['key']}")
+          else
+            raise "Unexpected state: #{payload['Message']['state']}"
+          end
+        end
+      rescue => e
+        logger.error(self.class) { MediaPipeline::LogMessage.new('transcode.error', {error:e.message}, 'Exception when running process-output command').to_s}
+      end
     end
 
     desc 'analyze', 'This command will scan the directory containing the media files and provide some basic analysis of how much data will be processed'
