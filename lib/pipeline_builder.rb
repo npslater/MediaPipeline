@@ -34,8 +34,8 @@ module MediaPipeline
 
     def create_stack
       @context.cfn.stacks.create(@context.name,
-                                       @context.templateUrl? ? @context.template : File.read(@context.template),
-                                       :parameters => @context.params)
+                                 @context.templateUrl? ? @context.template : File.read(@context.template),
+                                 :parameters => @context.params)
       stack = @context.cfn.stacks[@context.name]
       finished = false
       while not finished
@@ -57,6 +57,31 @@ module MediaPipeline
                                                      warning:'',
                                                      error:sns_arn
                                                  })
+    end
+
+    def delete_stack(s3, delete_s3_objects)
+      bucket = @context.params['S3BucketName']
+      if delete_s3_objects
+        s3.buckets[bucket].objects.each do | object |
+          object.delete
+        end
+      end
+      @logger.warn(self.class) {MediaPipeline::LogMessage.new('pipeline.delete_stack', {pipeline_name: @context.name, bucket: bucket}, 'S3 bucket is not empty and will have to be deleted manually').to_s} unless
+          s3.buckets[bucket].objects.count < 1
+      @context.cfn.stacks.each do | stack |
+        if stack.name.include?(@context.name)
+          stack.delete
+          @logger.info(self.class) {MediaPipeline::LogMessage.new('pipeline.delete_stack', {pipeline_name: @context.name}, 'Pipeline stack has been deleted').to_s}
+        end
+      end
+    end
+
+    def delete_pipeline(name)
+      @context.transcoder.client.list_pipelines[:pipelines].each do | pipeline |
+        if pipeline[:name].include?(name)
+          @context.transcoder.client.delete_pipeline(id:pipeline[:id])
+        end
+      end
     end
   end
 end

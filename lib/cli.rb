@@ -4,10 +4,6 @@ require 'json'
 
 module MediaPipeline
   class CLI < Thor
-    class_option :config, :required=>false, :banner=>'CONFIG FILE', :desc=>'The path to the config file', :default=>'~/.mediapipeline/config'
-    class_option :config_key, :required=>false, :banner=>'CONFIG KEY', :desc=>'The configuration key to use when running (e.g. development, test, production', :default=>'production'
-    class_option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
-    class_option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
 
     desc 'process-files', 'Processes the files in the given directory'
     long_desc <<-LONGDESC
@@ -32,10 +28,14 @@ module MediaPipeline
       To make the S3 uploads more efficient, the number of concurrent uploads can be specified using the s3:concurrent_connections key in the config file.
     LONGDESC
 
-    option :dir, :required=>true, :banner=>'DIR', :desc=>'The directory to index'
-    option :ext, :required=>true, :banner=>'EXT', :desc=>'The extension of files to index'
+    option :config, :required=>true, :banner=>'CONFIG FILE', :desc=>'The path to the config file'
+    option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
+    option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
+    option :dir, :required=>true, :banner=>'DIR', :desc=>'The directory containing the files to index'
+    option :input_file_ext, :required=>true, :banner=>'EXT', :desc=>'The extension of the transcode input files to index'
     def process_files
-      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
+      config = init_config(options[:config], options[:pipeline_name])
       data_access = init_data_access(config)
 
       logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
@@ -50,9 +50,8 @@ module MediaPipeline
                                                    archive_context,
                                                    logger:logger)
 
-      dir_filter = MediaPipeline::DirectoryFilter.new(options[:dir], options[:ext])
+      dir_filter = MediaPipeline::DirectoryFilter.new(options[:dir], options[:input_file_ext])
       collection = MediaPipeline::MediaFileCollection.new
-
 
       dir_filter.filter.each do | file |
         collection.add_file(file)
@@ -71,7 +70,10 @@ module MediaPipeline
     end
 
     desc 'create', 'Create a media pipeline'
+    option :config, :required=>true, :banner=>'CONFIG FILE', :desc=>'The path to the config file'
     option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
+    option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
     option :template, :required=>true, :banner=>'CFN_TEMPLATE', :desc=>'The path or URL to the CFN template'
     long_desc <<-LONGDESC
       Creates all the AWS resources required for the media pipeline.  Most resources are created using CloudFormation.
@@ -82,7 +84,7 @@ module MediaPipeline
       logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
       logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
 
-      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
+      config = init_config(options[:config], options[:pipeline_name])
       builder = MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new(options[:pipeline_name],
                                                                                       options[:template],
                                                                                       AWS::CloudFormation.new(region:config['aws']['region']),
@@ -107,8 +109,71 @@ module MediaPipeline
       builder.create_pipeline(role_arn, sns_arn)
     end
 
-    desc 'transcode', 'Poll for messages on the transcoding queue and submit jobs to the ElasticTranscoder pipeline'
+    desc 'delete', 'Delete a media pipeline'
+    option :config, :required=>true, :banner=>'CONFIG FILE', :desc=>'The path to the config file'
     option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
+    option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
+    option :delete_objects, :required=>false, :banner=>'REMOVES ALL OBJECTS IN S3 BUCKET'
+    long_desc <<-LONGDESC
+      Deletes all the AWS resources in a media pipeline.  THE --delete-objects OPTION WILL ALSO DELETE ALL OBJECTS IN THE PIPELINE'S S3 BUCKET!
+      USE WITH CAUTION!
+    LONGDESC
+    def delete
+      config = init_config(options[:config], options[:pipeline_name])
+
+      response = ask("Delete pipeline #{options[:pipeline_name]}?  Are you sure (Y/n)?")
+      if not response.eql?('Y')
+        puts 'Delete aborted'
+        exit 0
+      end
+
+      if options[:delete_objects]
+        response = ask("Delete S3 objects in bucket #{config['s3']['bucket_name']}?  Are you sure (Y/n)")
+        if not response.eql?('Y')
+          puts 'Delete aborted'
+          exit 0
+        end
+      end
+      logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
+      logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
+      builder = MediaPipeline::PipelineBuilder.new(MediaPipeline::PipelineContext.new(options[:pipeline_name],
+                                                                                      options[:template],
+                                                                                      AWS::CloudFormation.new(region:config['aws']['region']),
+                                                                                      AWS::ElasticTranscoder.new(region:config['aws']['region']),
+                                                                                      config['s3']['bucket'],
+                                                                                      {
+                                                                                          'S3BucketName' => config['s3']['bucket'],
+                                                                                          'S3ArchivePrefix' => config['s3']['archive_prefix'],
+                                                                                          'S3InputPrefix' => config['s3']['transcode_input_prefix'],
+                                                                                          'S3OutputPrefix' => config['s3']['transcode_output_prefix'],
+                                                                                          'S3CoverArtPrefix' => config['s3']['cover_art_prefix'],
+                                                                                          'DDBFileTable' => config['db']['file_table'],
+                                                                                          'DDBArchiveTable' => config['db']['archive_table'],
+                                                                                          'TranscodeQueueName' => config['sqs']['transcode_queue'],
+                                                                                          'ID3TagQueueName' => config['sqs']['id3tag_queue'],
+                                                                                          'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue'],
+                                                                                          'TranscodeTopicName' => config['sns']['transcode_topic_name']
+                                                                                      }),logger:logger)
+      begin
+        s3 = AWS::S3.new(region:config['aws']['region'])
+        builder.delete_stack(s3, options[:delete_objects])
+      rescue => e
+        logger.error(self.class) {MediaPipeline::LogMessage.new('delete.error', {error:e.message}, 'Error while deleting pipeline stack').to_s}
+      end
+
+      begin
+        builder.delete_pipeline(options[:pipeline_name])
+      rescue => e
+        logger.error(self.class) {MediaPipeline::LogMessage.new('delete.error', {error:e.message}, 'Error while deleting pipeline').to_s}
+      end
+    end
+
+    desc 'transcode', 'Poll for messages on the transcoding queue and submit jobs to the ElasticTranscoder pipeline'
+    option :config, :required=>true, :banner=>'CONFIG FILE', :desc=>'The path to the config file'
+    option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
+    option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
     option :poll_timeout, :required=>false, :banner=>'TIMEOUT', :type=>:numeric, :default=>3600, :desc=>'Stop polling after this interval if no messages are being received.'
     option :input_file_ext, :required=>true, :banner=>'INPUT_FILE_EXTENSION', :desc=>'The extension of the input files to be transcoded'
     long_desc <<-LONGDESC
@@ -123,7 +188,7 @@ module MediaPipeline
       logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
       logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
 
-      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
+      config = init_config(options[:config], options[:pipeline_name])
       concurrency_mgr = MediaPipeline::ConcurrencyManager.new(config['s3']['concurrent_connections'])
       concurrency_mgr.logger = logger
 
@@ -161,13 +226,16 @@ module MediaPipeline
       The command uses long-polling and will poll for the length of time specified by the poll-timeout option (default 60 minutes).  The command will exit when
       no messages are being returned from the queue and the poll-timeout interval has been reached.
     LONGDESC
+    option :config, :required=>true, :banner=>'CONFIG FILE', :desc=>'The path to the config file'
     option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
+    option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
+    option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
     option :poll_timeout, :required=>false, :banner=>'TIMEOUT', :type=>:numeric, :default=>3600, :desc=>'Stop polling after this interval if no messages are being received.'
     def process_output
       logger = options[:log].nil? ? Logger.new(STDOUT) : Logger.new(options[:log])
       logger.level = options[:verbose].nil? ? Logger::INFO : Logger::DEBUG
 
-      config = MediaPipeline::ConfigFile.new(options[:config], options[:config_key]).config
+      config = init_config(options[:config], options[:pipeline_name])
       concurrency_mgr = MediaPipeline::ConcurrencyManager.new(config['s3']['concurrent_connections'])
       concurrency_mgr.logger = logger
 
@@ -245,6 +313,15 @@ module MediaPipeline
     end
 
     private
+
+    def init_config(config_file, pipeline_name)
+      config = MediaPipeline::ConfigFile.new(config_file, pipeline_name).config
+      if config.nil?
+        puts "No configuration found for pipeline #{pipeline_name}"
+        exit 1
+      end
+      config
+    end
 
     def init_data_access(config)
       data_access =  MediaPipeline::DataAccess.new(

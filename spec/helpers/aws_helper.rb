@@ -3,7 +3,7 @@ require 'aws-sdk'
 module AWSHelper
 
   def config_file
-    MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config
+    MediaPipeline::ConfigFile.new('./conf/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config
   end
 
   def cleanup_media_file_items

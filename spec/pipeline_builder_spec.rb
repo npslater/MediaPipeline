@@ -3,7 +3,7 @@ require 'spec_helper'
 describe MediaPipeline::PipelineBuilder do
   include AWSHelper
 
-  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config }
+  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config }
   let!(:cfn) { AWS::CloudFormation.new(region:config['aws']['region'])}
   let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region'])}
   let!(:prefix) { 'rspec' }

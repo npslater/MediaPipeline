@@ -2,7 +2,7 @@ require 'spec_helper'
 
 describe MediaPipeline::TranscodingContext do
 
-  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config}
+  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config}
   let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region'])}
   let(:context) { MediaPipeline::TranscodingContext.new(transcoder,
                                                         config['transcoder']['pipeline_name'],

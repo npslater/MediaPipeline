@@ -14,7 +14,7 @@ module ArchiveHelper
   end
 
   def cleanup_local_archives
-    config = MediaPipeline::ConfigFile.new('./conf/config.yml', ENV['ENVIRONMENT']).config
+    config = MediaPipeline::ConfigFile.new('./conf/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config
     Dir.glob("#{config['local']['archive_dir']}/**/*.rar").each do | file |
       File.delete(file)
     end

@@ -23,4 +23,8 @@ require 'securerandom'
 require 'logger'
 require 'open3'
 
-ENV['ENVIRONMENT'] = 'development'
+ENV['ENVIRONMENT'] = 'development' unless ENV['environment']
+PIPELINES = {
+    'development' => 'mediapipeline-dev',
+    'test' => 'mediapipeline-test',
+}

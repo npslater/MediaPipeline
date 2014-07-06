@@ -80,6 +80,10 @@
                     {
                         "AttributeName": "transcode_input_key",
                         "AttributeType": "S"
+                    },
+                    {
+                        "AttributeName": "tagged_output_key",
+                        "AttributeType": "S"
                     }
                 ],
                 "ProvisionedThroughput": {
@@ -123,6 +127,23 @@
                         ],
                         "Projection": {
                             "ProjectionType": "KEYS_ONLY"
+                        },
+                        "ProvisionedThroughput": {
+                            "ReadCapacityUnits": "5",
+                            "WriteCapacityUnits": "5"
+                        }
+                    },
+                    {
+                        "IndexName": "idx_tagged_output_key",
+                        "KeySchema": [
+                            {
+                                "AttributeName": "tagged_output_key",
+                                "KeyType": "HASH"
+                            }
+                        ],
+                        "Projection": {
+                            "NonKeyAttributes": ["artist", "album"],
+                            "ProjectionType": "INCLUDE"
                         },
                         "ProvisionedThroughput": {
                             "ReadCapacityUnits": "5",
