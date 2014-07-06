@@ -155,4 +155,5 @@ describe MediaPipeline::DataAccess do
     item = data_access.save_tagged_output_key(input_key, MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['tagged_output_prefix'], "#{File.basename(file, '.m4a')}.mp3"))
     expect(item.attributes['tagged_output_key']).not_to be_nil
   end
+
 end
