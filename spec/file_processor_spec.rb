@@ -7,6 +7,7 @@ describe MediaPipeline::FileProcessor do
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}
+  let!(:dir_filter) { MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a')}
   let!(:data_access) {
     MediaPipeline::DataAccess.new(
         MediaPipeline::DataAccessContext.new
@@ -46,24 +47,19 @@ describe MediaPipeline::FileProcessor do
 
     data_access.concurrency_mgr = concurrency_mgr
 
+    collection = MediaPipeline::MediaFileCollection.new
+    dir_filter.filter.each do | file |
+      collection.add_file(file)
+    end
+
     processor = MediaPipeline::FileProcessor.new(data_access,
-                                                 MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a'),
                                                  MediaPipeline::ArchiveContext.new(config['local']['rar_path'],
                                                                                    config['local']['archive_dir'],
                                                                                    config['local']['download_dir']), logger:logger)
-    processor.process_files
-    #not the ideal expectation, but if we get here without errors, it's a good indication the routine ran
+    collection.dirs.each do | k, v|
+      processor.process_files(k, v)
+      #not the ideal expectation, but if we get here without errors, it's a good indication the routine ran
+    end
     expect(true).to be_truthy
-  end
-
-  it 'should not process any files in the given directory if it has not been scheduled' do
-    processor = MediaPipeline::FileProcessor.new(data_access,
-                                                 MediaPipeline::DirectoryFilter.new(config['local']['media_files_dir'], 'm4a'),
-                                                 MediaPipeline::ArchiveContext.new(config['local']['rar_path'],
-                                                                                   config['local']['archive_dir'],
-                                                                                   config['local']['download_dir']))
-    processor.scheduler = MediaPipeline::Scheduler.new([24]) #this will never match a valid hour value (0-23)
-    processor.process_files
-    expect(Dir.glob("#{config['local']['archive_dir']}/**/*.rar").count).to be == 0
   end
 end

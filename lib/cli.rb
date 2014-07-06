@@ -46,13 +46,28 @@ module MediaPipeline
       data_access.concurrency_mgr=concurrency_mgr
 
       archive_context = init_archive_context(config)
-      puts config['schedule']['hours_in_day']
       processor = MediaPipeline::FileProcessor.new(data_access,
-                                                   MediaPipeline::DirectoryFilter.new(options[:dir], options[:ext]),
                                                    archive_context,
-                                                   logger:logger,
-                                                   scheduler:MediaPipeline::Scheduler.new(config['schedule']['hours_in_day']))
-      processor.process_files
+                                                   logger:logger)
+
+      dir_filter = MediaPipeline::DirectoryFilter.new(options[:dir], options[:ext])
+      collection = MediaPipeline::MediaFileCollection.new
+
+
+      dir_filter.filter.each do | file |
+        collection.add_file(file)
+      end
+
+      scheduler = MediaPipeline::Scheduler.new(config['schedule']['hours_in_day'])
+      collection.dirs.each do | k,v |
+        begin
+        if scheduler.can_execute?
+          processor.process_files(k,v)
+        end
+        rescue => e
+          logger.error(self.class) { MediaPipeline::LogMessage.new('process_files.error', {error:e.message}, 'Exception when running process-files command').to_s}
+        end
+      end
     end
 
     desc 'create', 'Create a media pipeline'
