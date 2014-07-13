@@ -65,6 +65,49 @@ module MediaPipeline
 
     end
 
+    desc 'database', 'Estimate the amount of each item in the database.  This can be used to determine the minimum number of read/write IOPS'
+    option :dir, :required=>true
+    option :input_file_ext, :required=>true
+    option :delimiter, :required=>false, :default=>','
+    def database
+      analysis = {
+          hash_key_len:[],
+          range_key_len:[],
+          attribute_len:[]
+      }
+      collection = MediaPipeline::MediaFileCollection.new
+      files = Dir.glob("#{options[:dir]}/**/*.#{options[:input_file_ext]}")
+      files.each do | file |
+        collection.add_file(file)
+      end
+      collection.dirs.each do | k,v |
+        analysis[:range_key_len].push(k.length)
+        v.each do | media_file |
+          analysis[:hash_key_len].push(media_file.file.length)
+          tag_length = 0
+          media_file.tag_data.keys.each do | tag |
+            tag_length = tag_length + media_file.tag_data[tag].to_s.length
+          end
+          analysis[:attribute_len].push(tag_length)
+        end
+      end
+      puts "total items: #{analysis[:hash_key_len].count}"
+      puts "statistic#{options[:delimiter]}length(chars)\n"
+      puts "avg hash key len#{options[:delimiter]}#{average(analysis[:hash_key_len])}\n"
+      puts "avg range key len#{options[:delimiter]}#{average(analysis[:range_key_len])}\n"
+      puts "avg attributes len#{options[:delimiter]}#{average(analysis[:attribute_len])}\n"
+      puts "med hash key len#{options[:delimiter]}#{median(analysis[:hash_key_len])}\n"
+      puts "med range key len#{options[:delimiter]}#{median(analysis[:range_key_len])}\n"
+      puts "med attributes len#{options[:delimiter]}#{median(analysis[:attribute_len])}\n"
+
+      analysis.keys.each do | key |
+        PERCENTILES.each do | percentile |
+          puts "#{percentile} pct #{key}#{options[:delimiter]}#{(percentile(analysis[key], percentile)).round(2)}\n"
+        end
+      end
+
+    end
+
     private
     def print_sizes(name, size, delimiter)
       puts "#{name}#{delimiter}#{size}#{delimiter}#{(size/(1024*1024)).round(2)}\n"
