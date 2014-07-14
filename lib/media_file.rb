@@ -34,7 +34,7 @@ module MediaPipeline
           unless frame.nil?
             info[:disk] = frame.to_int
           end
-          unless mp4.tag_item_list_map['covr'].nil?
+          unless mp4.tag.item_list_map['covr'].nil?
             cover_art_list = mp4.tag.item_list_map['covr'].to_cover_art_list
             cover_art = cover_art_list.first
             @cover_art = cover_art.data
