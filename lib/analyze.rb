@@ -85,7 +85,7 @@ module MediaPipeline
         v.each do | media_file |
           analysis[:hash_key_len].push(media_file.file.length)
           tag_length = 0
-          media_file.tag_data.keys.each do | tag |
+          media_file.tag_data(false).keys.each do | tag |
             tag_length = tag_length + media_file.tag_data[tag].to_s.length
           end
           analysis[:attribute_len].push(tag_length)

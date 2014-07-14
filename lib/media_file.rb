@@ -12,7 +12,7 @@ module MediaPipeline
       @cover_art = nil
     end
 
-    def read_tag(file)
+    def read_tag(file, read_cover_art)
       info = nil
       TagLib::FileRef.open(file) do |fileref|
         unless fileref.null?
@@ -34,26 +34,28 @@ module MediaPipeline
           unless frame.nil?
             info[:disk] = frame.to_int
           end
-          unless mp4.tag.item_list_map['covr'].nil?
-            cover_art_list = mp4.tag.item_list_map['covr'].to_cover_art_list
-            cover_art = cover_art_list.first
-            @cover_art = cover_art.data
+          if read_cover_art
+            unless mp4.tag.item_list_map['covr'].nil?
+              cover_art_list = mp4.tag.item_list_map['covr'].to_cover_art_list
+              cover_art = cover_art_list.first
+              @cover_art = cover_art.data
+            end
           end
         end
       end
       info
     end
 
-    def tag_data
+    def tag_data(read_cover_art=true)
       if @tag_data.nil?
-        @tag_data = read_tag(@file)
+        @tag_data = read_tag(@file, read_cover_art)
       end
       @tag_data
     end
 
     def cover_art
       if @cover_art.nil?
-        @tag_data = read_tag(@file)
+        @tag_data = read_tag(@file,true)
       end
       @cover_art
     end
