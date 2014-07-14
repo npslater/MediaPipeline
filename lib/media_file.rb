@@ -30,7 +30,7 @@ module MediaPipeline
       end
       if file.include?('m4a')
         TagLib::MP4::File.open(file) do |mp4|
-          frame = mp4.tag.item_list_map['disk']
+          frame = mp4.tag.item_list_map['disk'] unless mp4.nil?
           unless frame.nil?
             info[:disk] = frame.to_int
           end

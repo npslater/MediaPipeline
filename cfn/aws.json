@@ -87,8 +87,8 @@
                     }
                 ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits": "10",
-                    "WriteCapacityUnits": "10"
+                    "ReadCapacityUnits": "2",
+                    "WriteCapacityUnits": "2"
                 },
                 "KeySchema": [
                     {
@@ -113,8 +113,8 @@
                             "ProjectionType": "KEYS_ONLY"
                         },
                         "ProvisionedThroughput": {
-                            "ReadCapacityUnits": "5",
-                            "WriteCapacityUnits": "5"
+                            "ReadCapacityUnits": "2",
+                            "WriteCapacityUnits": "2"
                         }
                     },
                     {
@@ -129,8 +129,8 @@
                             "ProjectionType": "KEYS_ONLY"
                         },
                         "ProvisionedThroughput": {
-                            "ReadCapacityUnits": "5",
-                            "WriteCapacityUnits": "5"
+                            "ReadCapacityUnits": "2",
+                            "WriteCapacityUnits": "2"
                         }
                     },
                     {
@@ -146,8 +146,8 @@
                             "ProjectionType": "INCLUDE"
                         },
                         "ProvisionedThroughput": {
-                            "ReadCapacityUnits": "5",
-                            "WriteCapacityUnits": "5"
+                            "ReadCapacityUnits": "2",
+                            "WriteCapacityUnits": "2"
                         }
                     }
                 ]
@@ -166,8 +166,8 @@
                     }
                 ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits": "5",
-                    "WriteCapacityUnits": "5"
+                    "ReadCapacityUnits": "1",
+                    "WriteCapacityUnits": "1"
                 },
                 "KeySchema": [
                     {
