@@ -13,7 +13,7 @@ module MediaPipeline
     end
 
     def read_tag(file, read_cover_art)
-      info = nil
+      info = {}
       TagLib::FileRef.open(file) do |fileref|
         unless fileref.null?
           tag = fileref.tag
