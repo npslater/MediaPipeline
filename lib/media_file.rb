@@ -25,9 +25,9 @@ module MediaPipeline
               track: tag.track,
               genre: tag.genre,
               comment: tag.comment,
-              length: fileref.audio_properties.length,
-              bitrate: fileref.audio_properties.bitrate,
-              sample_rate: fileref.audio_properties.sample_rate
+              length: fileref.audio_properties.length.nil? ? 0 : fileref.audio_properties.length,
+              bitrate: fileref.audio_properties.bitrate.nil ? 0 : fileref.audio_properties.bitrate,
+              sample_rate: fileref.audio_properties.sample_rate.nil? ? 0 : fileref.audio_properties.sample_rate
           }
         end
       end
