@@ -73,7 +73,8 @@ module MediaPipeline
       analysis = {
           hash_key_len:[],
           range_key_len:[],
-          attribute_len:[]
+          attribute_len:[],
+          audio_len:[]
       }
       collection = MediaPipeline::MediaFileCollection.new
       files = Dir.glob("#{options[:dir]}/**/*.#{options[:input_file_ext]}")
@@ -89,16 +90,20 @@ module MediaPipeline
             tag_length = tag_length + media_file.tag_data[tag].to_s.length
           end
           analysis[:attribute_len].push(tag_length)
+          analysis.push(media_file.tag_data(false)[:length])
         end
       end
       puts "total items: #{analysis[:hash_key_len].count}"
+      puts "total audio length: #{analysis[:audio_len].inject(0) {|total, len| total+len}}"
       puts "statistic#{options[:delimiter]}length(chars)\n"
       puts "avg hash key len#{options[:delimiter]}#{average(analysis[:hash_key_len])}\n"
       puts "avg range key len#{options[:delimiter]}#{average(analysis[:range_key_len])}\n"
       puts "avg attributes len#{options[:delimiter]}#{average(analysis[:attribute_len])}\n"
+      puts "avg audio len#{options[:delimiter]}#{average(analysis[:audio_len])}\n"
       puts "med hash key len#{options[:delimiter]}#{median(analysis[:hash_key_len])}\n"
       puts "med range key len#{options[:delimiter]}#{median(analysis[:range_key_len])}\n"
       puts "med attributes len#{options[:delimiter]}#{median(analysis[:attribute_len])}\n"
+      puts "med audio len#{options[:delimiter]}#{median(analysis[:audio_len])}\n"
 
       analysis.keys.each do | key |
         PERCENTILES.each do | percentile |
