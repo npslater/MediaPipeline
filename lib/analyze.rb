@@ -90,7 +90,7 @@ module MediaPipeline
             tag_length = tag_length + media_file.tag_data[tag].to_s.length
           end
           analysis[:attribute_len].push(tag_length)
-          analysis.push(media_file.tag_data(false)[:length])
+          analysis[:audio_len].push(media_file.tag_data(false)[:length])
         end
       end
       puts "total items: #{analysis[:hash_key_len].count}"
