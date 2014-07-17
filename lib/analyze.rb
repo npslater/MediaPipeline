@@ -90,11 +90,12 @@ module MediaPipeline
             tag_length = tag_length + media_file.tag_data[tag].to_s.length
           end
           analysis[:attribute_len].push(tag_length)
-          if media_file.tag_data(false)[:length] == nil
-            puts "File #{media_file.file} has null length in audio_properties"
-          else
-            puts "Reading audio file length for #{media_file.file}"
+          if not media_file.tag_data(false)[:length].eql?(nil)
+            puts "Reading audio file length for #{media_file.file}: #{media_file.tag_data(false)[:length]}"
             analysis[:audio_len].push(media_file.tag_data(false)[:length])
+          else
+            puts "File #{media_file.file} has null length in audio_properties"
+            raise 'WTF?'
           end
 
         end
