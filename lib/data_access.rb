@@ -17,7 +17,6 @@ module MediaPipeline
     def init_file_table
       @file_table = @context.ddb_opts[:ddb].tables[@context.ddb_opts[:file_table_name]]
       @file_table.hash_key = [:local_file_path, :string]
-      @file_table.range_key = [:local_dir, :string]
     end
 
     def init_archive_table
@@ -25,11 +24,31 @@ module MediaPipeline
       @archive_table.hash_key = [:local_dir, :string]
     end
 
+    def init_stats_table
+      @stats_table = @context.ddb_opts[:ddb].tables[@context.ddb_opts[:stats_table_name]]
+      @stats_table.hash_key = [:local_dir, :string]
+    end
+
     def fetch_media_file_item(file)
       if @file_table.nil?
         init_file_table
       end
       @file_table.items.at(File.absolute_path(file), File.dirname(File.absolute_path(file)))
+    end
+
+    def increment_stat(local_dir, processing_stat)
+      if @stats_table.nil?
+        init_stats_table
+      end
+      item = @stats_table.items.at(local_dir)
+      unless item.exists?
+        @stats_table.items.create('local_dir' => local_dir)
+      end
+      @context.ddb_opts[:client].update_item(table_name: @context.ddb_opts[:stats_table_name],
+                                             key: {'local_dir' => {'s' => local_dir}},
+                                             attribute_updates: {
+                                                 processing_stat.attribute.to_s => {value: {'n' => processing_stat.value.to_s}, action: 'ADD'}
+                                             })
     end
 
     def save_media_file(media_file)

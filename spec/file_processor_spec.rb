@@ -20,6 +20,7 @@ describe MediaPipeline::FileProcessor do
         .configure_ddb(ddb,
                        config['db']['file_table'],
                        config['db']['archive_table'],
+                       config['db']['stats_table'],
                        AWS::DynamoDB::Client.new(api_version:'2012-08-10', region:config['aws']['region']))
         .configure_sqs(sqs,
                        config['sqs']['transcode_queue'],
@@ -33,6 +34,7 @@ describe MediaPipeline::FileProcessor do
     cleanup_archive_objects
     cleanup_archive_file_items
     cleanup_transcode_queue
+    clean_up_stats
   end
 
   before(:each) do

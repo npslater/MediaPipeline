@@ -58,7 +58,7 @@ module MediaPipeline
       part_keys.each do | part |
         file = @data_access.read_archive_object(part, dir)
         archive = file unless archive
-        @logger.info(self.class) { LogMessage.new('data_access.read_archive_object', {part:part, directory:dir, file:file},'Downloaded archive file from S3').to_s}
+        @logger.info(self.class) { LogMessage.new('data_access.read_archive_object', {part:part, directory:dir, file:file, file_size: File.size(file)},'Downloaded archive file from S3').to_s}
       end
 
       cmd = "#{@archive_context.rar_path} x #{archive}"
@@ -81,7 +81,7 @@ module MediaPipeline
       filter = "#{dir}/**/*.#{@context.input_ext}"
       files = Dir.glob(filter)
       keys = @data_access.write_transcoder_input(files)
-      @logger.info(self.class) {LogMessage.new('data_access.write_transcoder_input', {files:files}, 'Wrote transcoder input files to S3').to_s}
+      @logger.info(self.class) {LogMessage.new('data_access.write_transcoder_input', {files:files, total_size:files.map{|file| File.size(file)}.inject(0){|total, size| total+size}}, 'Wrote transcoder input files to S3').to_s}
 
       #wait for s3 uploads to complete
       bucket = @data_access.context.s3_opts[:s3].buckets[@data_access.context.s3_opts[:bucket_name]]
@@ -115,6 +115,7 @@ module MediaPipeline
       @logger.info(self.class) {LogMessage.new('process_transcoder_output.start', {input_key:input_key, output_key:output_key}, 'Started processing transcoder output file').to_s}
 
       item = @data_access.save_transcode_output_key(input_key, output_key)
+      @data_access.increment_stat(item.range_value, MediaPipeline::ProcessingStat.num_transcoded_files(1))
       @logger.info(self.class) {LogMessage.new('data_access.save_transcode_output_key', {item:item.hash_value, input_key:input_key, output_key:output_key}, 'Saved transcode output key to DynamoDB table item').to_s}
 
       tag_data = {
@@ -135,14 +136,18 @@ module MediaPipeline
       @logger.info(self.class) {LogMessage.new('process_transcoder_output.read_cover_art', {cover_art_key:cover_art_key}, 'Read cover art from S3 object').to_s}
 
       file = @data_access.read_transcoder_output_object(output_key, @archive_context.download_dir)
+      @data_access.increment_stat(item.range_value, MediaPipeline::ProcessingStat.size_bytes_transcoded_files(File.size(file)))
       @logger.info(self.class) {LogMessage.new('data_access.read_transcoder_output_object', {output_key:output_key, download_dir:@archive_context.download_dir}, 'Read transcoder output object from S3').to_s}
 
       media_file = MediaFile.new(file)
       media_file.write_tag(tag_data)
-      @logger.info(self.class) {LogMessage.new('media_file.write_tag', {file:file}, 'Wrote ID3 tags').to_s}
+      @data_access.increment_stat(item.range_value, MediaPipeline::ProcessingStat.audio_length_transcoded_files(media_file.tag_data(false)[:length]))
+      @logger.info(self.class) {LogMessage.new('media_file.write_tag', {file:file, file_size: File.size(file)}, 'Wrote ID3 tags').to_s}
 
       tagged_output_key = @data_access.write_tagged_output(media_file.file)
-      @logger.info(self.class) {LogMessage.new('data_access.write_tagged_output', {file:media_file.file, key:tagged_output_key}, 'Wrote tagged output file to S3').to_s}
+      @data_access.increment_stat(item.range_value, MediaPipeline::ProcessingStat.size_bytes_tagged_files(File.size(media_file.file)))
+      @data_access.increment_stat(item.range_value, MediaPipeline::ProcessingStat.num_tagged_files(1))
+      @logger.info(self.class) {LogMessage.new('data_access.write_tagged_output', {file:media_file.file, file_size: File.size(file), key:tagged_output_key}, 'Wrote tagged output file to S3').to_s}
 
       @data_access.save_tagged_output_key(input_key, tagged_output_key)
       @logger.info(self.class) {LogMessage.new('data_access.save_tagged_output_key', {item:item.hash_value, input_key: input_key, output_key:tagged_output_key}, 'Saved tagged output key to DynamoDB item').to_s}

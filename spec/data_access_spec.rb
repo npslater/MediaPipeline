@@ -22,6 +22,7 @@ describe MediaPipeline::DataAccess do
                                                .configure_ddb(ddb,
                                                               config['db']['file_table'],
                                                               config['db']['archive_table'],
+                                                              config['db']['stats_table'],
                                                               AWS::DynamoDB::Client.new(api_version:'2012-08-10', region:config['aws']['region']))
                                                .configure_sqs(sqs,
                                                               config['sqs']['transcode_queue'],
@@ -38,6 +39,7 @@ describe MediaPipeline::DataAccess do
     cleanup_transcode_queue
     cleanup_transcode_input_objects
     cleanup_transcode_output_objects
+    clean_up_stats
   end
 
   it 'should return an instance of DataAccess' do
@@ -62,7 +64,6 @@ describe MediaPipeline::DataAccess do
     #read the item back out and check the attributes
     table = ddb.tables[config['db']['file_table']]
     table.hash_key = [:local_file_path, :string]
-    table.range_key = [:local_dir, :string]
     item = table.items.at(File.absolute_path(file), File.dirname(File.absolute_path(file)))
     expect(item).not_to be_nil
     expect(item.attributes['album']).not_to be_nil
@@ -154,6 +155,14 @@ describe MediaPipeline::DataAccess do
     data_access.save_transcode_input_key(archive_key, input_key)
     item = data_access.save_tagged_output_key(input_key, MediaPipeline::ObjectKeyUtils.file_object_key(config['s3']['tagged_output_prefix'], "#{File.basename(file, '.m4a')}.mp3"))
     expect(item.attributes['tagged_output_key']).not_to be_nil
+  end
+
+  it 'should increment the stat in the file processing stats table' do
+    data_access.increment_stat(file, MediaPipeline::ProcessingStat.num_local_files(1))
+    table = data_access.context.ddb_opts[:ddb].tables[data_access.context.ddb_opts[:stats_table_name]]
+    table.hash_key = [:local_dir, :string]
+    item = table.items.at(File.dirname(File.absolute_path(file)))
+    expect(item.attributes['num_local_files']).to be == 1
   end
 
 end

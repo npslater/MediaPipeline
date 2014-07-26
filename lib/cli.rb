@@ -98,6 +98,7 @@ module MediaPipeline
                                                                                           'S3CoverArtPrefix' => config['s3']['cover_art_prefix'],
                                                                                           'DDBFileTable' => config['db']['file_table'],
                                                                                           'DDBArchiveTable' => config['db']['archive_table'],
+                                                                                          'DDBProcessingStatsTable' => config['db']['stats_table'],
                                                                                           'TranscodeQueueName' => config['sqs']['transcode_queue'],
                                                                                           'ID3TagQueueName' => config['sqs']['id3tag_queue'],
                                                                                           'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue'],
@@ -296,6 +297,7 @@ module MediaPipeline
           .configure_ddb(AWS::DynamoDB.new(region:config['aws']['region']),
                          config['db']['file_table'],
                          config['db']['archive_table'],
+                         config['db']['stats_table'],
                          AWS::DynamoDB::Client.new(api_version:'2012-08-10', region:config['aws']['region']))
           .configure_sqs(AWS::SQS.new(region:config['aws']['region']),
                          config['sqs']['transcode_queue'],

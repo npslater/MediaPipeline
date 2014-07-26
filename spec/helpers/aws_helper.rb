@@ -11,7 +11,6 @@ module AWSHelper
     ddb = AWS::DynamoDB.new(region:config['aws']['region'])
     table = ddb.tables[config['db']['file_table']]
     table.hash_key = :local_file_path, :string
-    table.range_key = :local_dir, :string
     table.items.each do | item |
       item.delete
     end
@@ -44,6 +43,11 @@ module AWSHelper
   def cleanup_transcode_output_objects
     config = config_file
     cleanup_objects(config, config['s3']['transcode_output_prefix'])
+  end
+
+  def cleanup_tagged_output_objects
+    config = config_file
+    cleanup_objects(config, config['s3']['tagged_output_prefix'])
   end
 
   def cleanup_archive_file_items
@@ -109,6 +113,17 @@ module AWSHelper
     object = data_access.context.s3_opts[:s3].buckets[data_access.context.s3_opts[:bucket_name]].objects[out_key]
     File.open(mp3_file, 'r') do | input |
       object.write(input)
+    end
+    out_key
+  end
+
+  def clean_up_stats
+    config = config_file
+    ddb = AWS::DynamoDB.new(region:config['aws']['region'])
+    table = ddb.tables[config['db']['stats_table']]
+    table.hash_key = [:local_dir, :string]
+    table.items.each do | item |
+      item.delete
     end
   end
 end

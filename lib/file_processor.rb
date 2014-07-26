@@ -26,7 +26,9 @@ module MediaPipeline
         next if @data_access.fetch_media_file_item(media_file.file).exists?
         media_file.save do
           @data_access.save_media_file(media_file)
-          @logger.info(self.class) { LogMessage.new('data_access.save_media_file', {file:media_file.file, table:@data_access.context.ddb_opts[:file_table_name]}, 'Saved media file to DynamoDB').to_s}
+          @data_access.increment_stat(File.dirname(File.absolute_path(media_file.file)), MediaPipeline::ProcessingStat.num_local_files(1))
+          @data_access.increment_stat(File.dirname(File.absolute_path(media_file.file)), MediaPipeline::ProcessingStat.size_bytes_local_files(File.size(media_file.file)))
+          @logger.info(self.class) { LogMessage.new('data_access.save_media_file', {file:media_file.file, file_size:File.size(media_file.file), table:@data_access.context.ddb_opts[:file_table_name]}, 'Saved media file to DynamoDB').to_s}
         end
 
         media_file.write_cover_art do
@@ -34,13 +36,15 @@ module MediaPipeline
           @logger.info(self.class) { LogMessage.new('data_access.write_cover_art', {key:key, bucket:@data_access.context.s3_opts[:bucket_name],file:media_file.file}, 'Wrote cover art to S3').to_s}
         end
         archive.add_file(media_file.file)
-        @logger.info(self.class) { LogMessage.new('archive.add_file', {archive_name:archive.archive_name, dir:archive.archive_dir, file:media_file.file}, 'Added file to archive').to_s}
+        @data_access.increment_stat(File.dirname(File.absolute_path(media_file.file)), MediaPipeline::ProcessingStat.num_archived_files(1))
+        @data_access.increment_stat(File.dirname(File.absolute_path(media_file.file)), MediaPipeline::ProcessingStat.size_bytes_archived_files(File.size(media_file.file)))
+        @logger.info(self.class) { LogMessage.new('archive.add_file', {archive_name:archive.archive_name, dir:archive.archive_dir, file:media_file.file, file_size:File.size(media_file.file)}, 'Added file to archive').to_s}
       end
 
       if archive.files.count > 0
         parts = archive.archive
         size = parts.inject(0) {|result, part| result + File.size(part)}
-        @logger.info(self.class) { LogMessage.new('archive.archive', {directory:directory, parts:parts, size:size}, 'Created RAR archive').to_s}
+        @logger.info(self.class) { LogMessage.new('archive.archive', {directory:directory, archive_parts:parts, archive_size:size}, 'Created RAR archive').to_s}
 
         keys = @data_access.write_archive(parts)
         @logger.info(self.class) { LogMessage.new('data_access.write_archive', {keys:keys, bucket:@data_access.context.s3_opts[:bucket_name]}, 'Wrote archive to S3').to_s}

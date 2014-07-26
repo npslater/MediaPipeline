@@ -17,6 +17,7 @@ describe MediaPipeline::PipelineBuilder do
                       'S3CoverArtPrefix' => config['s3']['cover_art_prefix'],
                       'DDBFileTable' => "#{prefix}-#{config['db']['file_table']}-#{suffix}",
                       'DDBArchiveTable' => "#{prefix}-#{config['db']['archive_table']}-#{suffix}",
+                      'DDBProcessingStatsTable' => "#{prefix}-#{config['db']['stats_table']}-#{suffix}",
                       'TranscodeQueueName' => "#{prefix}-#{config['sqs']['transcode_queue']}-#{suffix}",
                       'ID3TagQueueName' => "#{prefix}-#{config['sqs']['id3tag_queue']}-#{suffix}",
                       'CloudPlayerUploadQueueName' => "#{prefix}-#{config['sqs']['cloudplayer_upload_queue']}-#{suffix}",

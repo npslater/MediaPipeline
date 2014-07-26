@@ -21,10 +21,11 @@ module MediaPipeline
       self
     end
 
-    def configure_ddb(ddb, file_table_name, archive_table_name, client)
+    def configure_ddb(ddb, file_table_name, archive_table_name, stats_table_name, client)
       @ddb_opts[:ddb] = ddb
       @ddb_opts[:file_table_name] = file_table_name
       @ddb_opts[:archive_table_name] = archive_table_name
+      @ddb_opts[:stats_table_name] = stats_table_name
       @ddb_opts[:client] = client
       self
     end

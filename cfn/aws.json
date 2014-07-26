@@ -24,6 +24,9 @@
         "DDBArchiveTable": {
             "Type": "String"
         },
+        "DDBProcessingStatsTable": {
+            "Type": "String"
+        },
         "TranscodeQueueName": {
             "Type": "String"
         },
@@ -94,10 +97,6 @@
                     {
                         "AttributeName": "local_file_path",
                         "KeyType": "HASH"
-                    },
-                    {
-                        "AttributeName": "local_dir",
-                        "KeyType": "RANGE"
                     }
                 ],
                 "GlobalSecondaryIndexes": [
@@ -158,6 +157,30 @@
             "Properties": {
                 "TableName": {
                     "Ref": "DDBArchiveTable"
+                },
+                "AttributeDefinitions": [
+                    {
+                        "AttributeName": "local_dir",
+                        "AttributeType": "S"
+                    }
+                ],
+                "ProvisionedThroughput": {
+                    "ReadCapacityUnits": "1",
+                    "WriteCapacityUnits": "1"
+                },
+                "KeySchema": [
+                    {
+                        "AttributeName": "local_dir",
+                        "KeyType": "HASH"
+                    }
+                ]
+            }
+        },
+        "MediaProcessingStatsTable": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+                "TableName": {
+                    "Ref": "DDBProcessingStatsTable"
                 },
                 "AttributeDefinitions": [
                     {
@@ -381,12 +404,28 @@
                                     "Effect": "Allow"
                                 },
                                 {
+                                    "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBProcessingStatsTable"},"*"]]},
+                                    "Action": [
+                                        "dynamodb:BatchGetItem",
+                                        "dynamodb:BatchWriteItem",
+                                        "dynamodb:DescribeTable",
+                                        "dynamodb:Query",
+                                        "dynamodb:PutItem",
+                                        "dynamodb:GetItem",
+                                        "dynamodb:Scan",
+                                        "dynamodb:UpdateItem",
+                                        "dynamodb:ListTables"
+                                    ],
+                                    "Sid": "7",
+                                    "Effect": "Allow"
+                                },
+                                {
                                     "Resource": "*",
                                     "Action": [
                                         "elastictranscoder:ListPipelines",
                                         "elastictranscoder:CreateJob"
                                     ],
-                                    "Sid": "7",
+                                    "Sid": "8",
                                     "Effect": "Allow"
                                 }
                             ],

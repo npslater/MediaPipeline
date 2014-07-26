@@ -21,5 +21,6 @@ require_relative '../lib/transcoding_context'
 require_relative '../lib/directory_filter'
 require_relative '../lib/object_key_utils'
 require_relative '../lib/analyze'
+require_relative '../lib/processing_stat'
 
 MediaPipeline::CLI.start(ARGV)

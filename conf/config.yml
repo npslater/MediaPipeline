@@ -18,12 +18,12 @@ mediapipeline-dev:
   db:
     file_table: media_file_dev
     archive_table: media_archive_dev
+    stats_table: media_processing_stats_dev
   sqs:
     transcode_queue: transcode_dev
     id3tag_queue: id3tag_dev
     cloudplayer_upload_queue: cloudplayer_dev
   transcoder:
-    pipeline_name: media-pipeline-dev
     preset_id: 1351620000001-300010
     output_file_ext: mp3
   sns:
@@ -49,6 +49,7 @@ mediapipeline-test:
   db:
     file_table: media_file_test
     archive_table: media_archive_test
+    stats_table: media_processing_stats_test
   sqs:
     transcode_queue: transcode_test
     id3tag_queue: id3tag_test
@@ -79,7 +80,7 @@ mediapipeline-prod:
   db:
     file_table: media_file
     archive_table: media_archive
-    title_table: media_title
+    stats_table: media_processing_stats
   sqs:
     transcode_queue: transcode
     id3tag_queue: id3tag
