@@ -2,7 +2,7 @@ require 'spec_helper'
 
 describe MediaPipeline::MediaFileCollection do
 
-  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config }
+  let!(:config) { MediaPipeline::ConfigFile.new('./spec/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
 
   it 'should return an instance of MediaFileCollection' do

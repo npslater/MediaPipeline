@@ -1,7 +1,6 @@
 require 'thor'
 require 'aws-sdk'
 require 'json'
-require '../lib/analyze'
 
 module MediaPipeline
   class CLI < Thor
@@ -69,12 +68,51 @@ module MediaPipeline
       end
     end
 
+    desc 'configure', 'Configure a media pipeline'
+    option :input_config, :required=>true, :desc=>'The path to the input config file'
+    option :output_config, :required=>true, :banner=>'CONFIG FILE', :desc=>'The path where the output config file will be written'
+    option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The name of the pipeline that will be created using this configuration'
+    option :region, :required=>true
+    option :s3_bucket, :required=>true
+    option :file_table, :required=>true
+    option :archive_table, :required=>true
+    option :stats_table, :required=>true
+    option :transcode_queue, :required=>true
+    option :id3tag_queue, :required=>true
+    option :transcode_topic, :required=>true
+    long_desc <<-LONGDESC
+      Creates the configuration file that will be used to create and run the pipeline.  This command is really just
+      present for convenience--all it does is read in the command line args, and emit a YAML config file to the given path.
+      The input config file is used to provide the structure for the output config file.
+      It is entirely possible to create and edit the output config file by hand if need be.
+    LONGDESC
+    def configure
+      input = MediaPipeline::ConfigFile.new(options[:input_config], 'pipeline_name').config
+      output = {
+          options[:pipeline_name] => input
+      }
+      pipeline_name = options[:pipeline_name]
+      output[pipeline_name]['aws']['region'] = options[:region]
+      output[pipeline_name]['s3']['bucket'] = options[:s3_bucket]
+      output[pipeline_name]['db']['file_table'] = options[:file_table]
+      output[pipeline_name]['db']['archive_table'] = options[:archive_table]
+      output[pipeline_name]['db']['stats_table'] = options[:stats_table]
+      output[pipeline_name]['sqs']['transcode_queue'] = options[:transcode_queue]
+      output[pipeline_name]['sqs']['id3tag_queue'] = options[:id3tag_queue]
+      output[pipeline_name]['sns']['transcode_topic'] = options[:transcode_topic]
+
+      File.open(options[:output_config], 'w') do | file |
+        file.write(YAML.dump(output))
+      end
+    end
+
     desc 'create', 'Create a media pipeline'
     option :config, :required=>true, :banner=>'CONFIG FILE', :desc=>'The path to the config file'
     option :pipeline_name, :required=>true, :banner=>'NAME', :desc=>'The pipeline name'
     option :log, :required=>false, :banner=>'LOG FILE', :desc=>'The path to the log file (optional).  If not given, STDOUT will be used'
     option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
     option :template, :required=>true, :banner=>'CFN_TEMPLATE', :desc=>'The path or URL to the CFN template'
+    option :key_name, :required=>true, :desc=>'The name of the EC2 key pair to use when launching worker instances'
     long_desc <<-LONGDESC
       Creates all the AWS resources required for the media pipeline.  Most resources are created using CloudFormation.
 
@@ -101,8 +139,8 @@ module MediaPipeline
                                                                                           'DDBProcessingStatsTable' => config['db']['stats_table'],
                                                                                           'TranscodeQueueName' => config['sqs']['transcode_queue'],
                                                                                           'ID3TagQueueName' => config['sqs']['id3tag_queue'],
-                                                                                          'CloudPlayerUploadQueueName' => config['sqs']['cloudplayer_upload_queue'],
-                                                                                          'TranscodeTopicName' => config['sns']['transcode_topic_name']
+                                                                                          'TranscodeTopicName' => config['sns']['transcode_topic_name'],
+                                                                                          'AutoscaleTranscodeQueueLength' => config['autoscale']['transcode_queue_length']
                                                                                       }),logger:logger)
       stack = builder.create_stack
       role_arn = stack.outputs.select {|output| output.key.eql?('TranscoderRole')}.first.value

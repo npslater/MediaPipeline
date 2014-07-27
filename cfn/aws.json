@@ -33,15 +33,25 @@
         "ID3TagQueueName": {
             "Type": "String"
         },
-        "CloudPlayerUploadQueueName": {
+        "TranscodeTopicName": {
             "Type": "String"
         },
-        "TranscodeTopicName": {
+        "AutoScaleTranscodeQueueLength": {
+            "Type": "Number"
+        },
+        "KeyName": {
             "Type": "String"
         }
     },
     "Mappings": {
-
+        "RegionMap": {
+            "us-east-1": {"image": "ami-864d84ee"},
+            "us-west-2": {"image": "ami-e7b8c0d7"}
+        },
+        "Region2AZ" : {
+            "us-west-2" : { "AZ" : ["us-west-2a", "us-west-2b", "us-west-2c"] },
+            "us-east-1" : { "AZ" : ["us-east-1a", "us-east-1b", "us-east-1c"] }
+        }
     },
     "Resources": {
         "S3Bucket": {
@@ -216,14 +226,6 @@
                 }
             }
         },
-        "CloudPlayerUploadQueue": {
-            "Type": "AWS::SQS::Queue",
-            "Properties": {
-                "QueueName": {
-                    "Ref": "CloudPlayerUploadQueueName"
-                }
-            }
-        },
         "TranscodeTopic": {
             "Type": "AWS::SNS::Topic",
             "Properties": {
@@ -298,7 +300,7 @@
                 ]
             }
         },
-        "TranscodeWorkerRole":
+        "PipelineWorkerRole":
         {
             "Type": "AWS::IAM::Role",
             "Properties": {
@@ -359,19 +361,6 @@
                                     "Effect": "Allow"
                                 },
                                 {
-                                    "Resource":  {"Fn::GetAtt": ["CloudPlayerUploadQueue", "Arn"]},
-                                    "Action": [
-                                        "sqs:ReceiveMessage",
-                                        "sqs:DeleteMessage",
-                                        "sqs:SendMessage",
-                                        "sqs:GetQueueUrl",
-                                        "sqs:ListQueues",
-                                        "sqs:ChangeMessageVisibility"
-                                    ],
-                                    "Sid": "4",
-                                    "Effect": "Allow"
-                                },
-                                {
                                     "Resource": {"Fn::Join": ["", ["arn:aws:dynamodb:", {"Ref": "AWS::Region"},":",{"Ref": "AWS::AccountId"}, ":table/", {"Ref": "DDBFileTable"},"*"]]},
                                     "Action": [
                                         "dynamodb:BatchGetItem",
@@ -384,7 +373,7 @@
                                         "dynamodb:UpdateItem",
                                         "dynamodb:ListTables"
                                     ],
-                                    "Sid": "5",
+                                    "Sid": "4",
                                     "Effect": "Allow"
                                 },
                                 {
@@ -400,7 +389,7 @@
                                         "dynamodb:UpdateItem",
                                         "dynamodb:ListTables"
                                     ],
-                                    "Sid": "6",
+                                    "Sid": "5",
                                     "Effect": "Allow"
                                 },
                                 {
@@ -416,7 +405,7 @@
                                         "dynamodb:UpdateItem",
                                         "dynamodb:ListTables"
                                     ],
-                                    "Sid": "7",
+                                    "Sid": "6",
                                     "Effect": "Allow"
                                 },
                                 {
@@ -425,7 +414,7 @@
                                         "elastictranscoder:ListPipelines",
                                         "elastictranscoder:CreateJob"
                                     ],
-                                    "Sid": "8",
+                                    "Sid": "7",
                                     "Effect": "Allow"
                                 }
                             ],
@@ -433,6 +422,156 @@
                         }
                     }
                 ]
+            }
+        },
+        "PipelineWorkerInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/mediapipeline/",
+                "Roles": [{"Ref": "PipelineWorkerRole"}]
+            }
+        },
+        "PipelineWorkerVPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": "10.0.0.0/16",
+                "Tags": [
+                    {"Key": "Name", "Value": {"Ref": "AWS::StackName"}}
+                ]
+            }
+        },
+        "PipelineWorkerSubnet": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "AvailabilityZone": "us-west-2b",
+                "CidrBlock": "10.0.0.0/24",
+                "VpcId": { "Ref": "PipelineWorkerVPC"},
+                "Tags": [
+                    {"Key": "Name", "Value": {"Ref": "AWS::StackName"}}
+                ]
+            }
+        },
+        "PipelineWorkerIGW": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {"Key": "Name", "Value": {"Ref": "AWS::StackName"}}
+                ]
+            }
+        },
+        "PipelineWorkerIGWAttachment": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {"Ref": "PipelineWorkerVPC"},
+                "InternetGatewayId": {"Ref": "PipelineWorkerIGW"}
+            }
+        },
+        "PipelineWorkerRouteTable": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {"Ref": "PipelineWorkerVPC"},
+                "Tags": [
+                    {"Key": "Name", "Value": {"Ref": "AWS::StackName"}}
+                ]
+            }
+        },
+        "PipelineWorkerRoute": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": { "Ref": "PipelineWorkerRouteTable"},
+                "GatewayId": { "Ref": "PipelineWorkerIGW"},
+                "DestinationCidrBlock": "0.0.0.0/0"
+            }
+        },
+        "PipelineWorkerRouteAssociation": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {"Ref": "PipelineWorkerSubnet"},
+                "RouteTableId": {"Ref": "PipelineWorkerRouteTable"}
+            }
+        },
+        "PipelineWorkerSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "Tags": [
+                    {"Key": "Name", "Value": {"Ref": "AWS::StackName"}}
+                ],
+                "GroupDescription": {"Fn::Join": [" ", ["Pipeline Worker SG for ", {"Ref": "AWS::StackName"}]]},
+                "SecurityGroupIngress": [
+                    {
+                        "CidrIp": "0.0.0.0/0",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "IpProtocol": "tcp"
+                    }
+                ],
+                "VpcId": {"Ref": "PipelineWorkerVPC"}
+            }
+        },
+        "TranscodeWorkerLaunchConfig": {
+            "Type": "AWS::AutoScaling::LaunchConfiguration",
+            "Properties": {
+                "AssociatePublicIpAddress": "true",
+                "ImageId": {"Fn::FindInMap": ["RegionMap", {"Ref": "AWS::Region"}, "image"]},
+                "InstanceType": "t2.micro",
+                "KeyName": {"Ref": "KeyName"},
+                "SecurityGroups": [{"Ref": "PipelineWorkerSecurityGroup"}],
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName" : "/dev/sda1",
+                        "Ebs" : { "VolumeSize" : "100", "VolumeType": "gp2" }
+                    }
+                ],
+                "UserData": {"Fn::Base64": {"Fn::Join": ["",
+                    [
+                        "#!/bin/bash -ex", "\n",
+                        "su - ubuntu -c \"curl -sSL https://get.rvm.io | bash -s stable\"", "\n",
+                        "su - ubuntu -c \"source /home/ubuntu/.rvm/scripts/rvm\"", "\n",
+                        "su - ubuntu -c \"rvm install 2.1\"", "\n",
+                        "apt-get -y install git", "\n",
+                        "apt-get -y install libtag1-dev", "\n",
+                        "wget http://www.rarlab.com/rar/rarlinux-x64-5.1.0.tar.gz", "\n",
+                        "tar xvzf rarlinux-x64-5.1.0.tar.gz", "\n",
+                        "cp rar/rar /usr/bin", "\n",
+                        "cp rar/unrar /usr/bin", "\n",
+                        "mkdir -p /tmp/mediapipeline/archive", "\n",
+                        "mkdir -p /tmp/mediapipeline/download", "\n",
+                        "mkdir -p /tmp/mediapipeline/cover_art", "\n",
+                        "su - ubuntu -c \"git clone https://github.com/npslater/MediaPipeline /home/ubuntu/MediaPipeline\"", "\n",
+                        "su - ubuntu -c \"cd /home/ubuntu/MediaPipeline; bundle install\"", "\n",
+                        "su - ubuntu =c \"cd /home/ubuntu/MediaPipeline; rake install\"", "\n",
+                        "su - ubuntu -c \"mkdir -p /home/ubuntu/.mediapipeline\"", "\n",
+                        {"Fn::Join": [" ", [
+                                "su - ubuntu -c \"/home/ubuntu/MediaPipeline/bin/mediapipeline configure",
+                                "--input-config /home/ubuntu/MediaPipeline/conf/config.yml",
+                                "--output-config /home/ubuntu/.mediapipeline/config",
+                                "--pipeline-name", {"Ref": "AWS::StackName"},
+                                "--region", {"Ref": "AWS::Region"},
+                                "--s3-bucket", {"Ref": "S3BucketName"},
+                                "--file-table", {"Ref": "DDBFileTable"},
+                                "--archive-table", {"Ref": "DDBArchiveTable"},
+                                "--stats-table", {"Ref": "DDBProcessingStatsTable"},
+                                "--transcode-queue", {"Ref": "TranscodeQueueName"},
+                                "--id3tag-queue", {"Ref": "ID3TagQueueName"},
+                                "--transcode-topic", {"Ref": "TranscodeTopicName"},"\""
+                            ]
+                        ]}
+                    ]
+                ]}}
+            },
+            "DependsOn": "PipelineWorkerIGW"
+        },
+        "TranscodeWorkerAutoscalingGroup": {
+            "Type": "AWS::AutoScaling::AutoScalingGroup",
+            "Properties": {
+                "AvailabilityZones": ["us-west-2b"],
+                "VPCZoneIdentifier": [{"Ref": "PipelineWorkerSubnet"}],
+                "Tags": [
+                    {"Key": "Name", "Value": {"Fn::Join": ["-", ["transcode-worker",{"Ref": "AWS::StackName"}]]}, "PropagateAtLaunch": "true"}
+                ],
+                "MaxSize":1,
+                "MinSize":1,
+                "LaunchConfigurationName": {"Ref": "TranscodeWorkerLaunchConfig"}
             }
         }
     },

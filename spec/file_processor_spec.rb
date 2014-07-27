@@ -3,7 +3,7 @@ require 'spec_helper'
 describe MediaPipeline::FileProcessor do
   include AWSHelper, ArchiveHelper
 
-  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config }
+  let!(:config) { MediaPipeline::ConfigFile.new('./spec/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config }
   let!(:ddb) { AWS::DynamoDB.new(region:config['aws']['region'])}
   let!(:s3) { AWS::S3.new(region:config['aws']['region'])}
   let!(:sqs) { AWS::SQS.new(region:config['aws']['region'])}

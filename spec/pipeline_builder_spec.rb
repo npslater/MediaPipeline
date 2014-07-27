@@ -3,7 +3,7 @@ require 'spec_helper'
 describe MediaPipeline::PipelineBuilder do
   include AWSHelper
 
-  let!(:config) { MediaPipeline::ConfigFile.new('./conf/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config }
+  let!(:config) { MediaPipeline::ConfigFile.new('./spec/config.yml', PIPELINES[ENV['ENVIRONMENT']]).config }
   let!(:cfn) { AWS::CloudFormation.new(region:config['aws']['region'])}
   let!(:transcoder) { AWS::ElasticTranscoder.new(region:config['aws']['region'])}
   let!(:prefix) { 'rspec' }
@@ -20,8 +20,9 @@ describe MediaPipeline::PipelineBuilder do
                       'DDBProcessingStatsTable' => "#{prefix}-#{config['db']['stats_table']}-#{suffix}",
                       'TranscodeQueueName' => "#{prefix}-#{config['sqs']['transcode_queue']}-#{suffix}",
                       'ID3TagQueueName' => "#{prefix}-#{config['sqs']['id3tag_queue']}-#{suffix}",
-                      'CloudPlayerUploadQueueName' => "#{prefix}-#{config['sqs']['cloudplayer_upload_queue']}-#{suffix}",
-                      'TranscodeTopicName' => "#{prefix}-#{config['sns']['transcode_topic_name']}-#{suffix}"
+                      'TranscodeTopicName' => "#{prefix}-#{config['sns']['transcode_topic_name']}-#{suffix}",
+                      'AutoScaleTranscodeQueueLength' => config['autoscale']['transcode_queue_length'].to_s,
+                      'KeyName' => config['local']['key_name']
                   }))
 
   }
