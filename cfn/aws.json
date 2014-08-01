@@ -522,6 +522,7 @@
                         "Ebs" : { "VolumeSize" : "100", "VolumeType": "gp2" }
                     }
                 ],
+                "IamInstanceProfile": {"Ref": "PipelineWorkerInstanceProfile"},
                 "UserData": {"Fn::Base64": {"Fn::Join": ["",
                     [
                         "#!/bin/bash -ex", "\n",
@@ -539,10 +540,10 @@
                         "mkdir -p /tmp/mediapipeline/cover_art", "\n",
                         "su - ubuntu -c \"git clone https://github.com/npslater/MediaPipeline /home/ubuntu/MediaPipeline\"", "\n",
                         "su - ubuntu -c \"cd /home/ubuntu/MediaPipeline; bundle install\"", "\n",
-                        "su - ubuntu =c \"cd /home/ubuntu/MediaPipeline; rake install\"", "\n",
+                        "su - ubuntu -c \"cd /home/ubuntu/MediaPipeline; rake install\"", "\n",
                         "su - ubuntu -c \"mkdir -p /home/ubuntu/.mediapipeline\"", "\n",
                         {"Fn::Join": [" ", [
-                                "su - ubuntu -c \"/home/ubuntu/MediaPipeline/bin/mediapipeline configure",
+                                "su - ubuntu -c \"mediapipeline configure",
                                 "--input-config /home/ubuntu/MediaPipeline/conf/config.yml",
                                 "--output-config /home/ubuntu/.mediapipeline/config",
                                 "--pipeline-name", {"Ref": "AWS::StackName"},
@@ -555,11 +556,20 @@
                                 "--id3tag-queue", {"Ref": "ID3TagQueueName"},
                                 "--transcode-topic", {"Ref": "TranscodeTopicName"},"\""
                             ]
+                        ]}, "\n",
+                        {"Fn::Join": [" ", [
+                                "su - ubuntu -c \"mediapipeline transcode",
+                                "--config /home/ubuntu/.mediapipeline/config",
+                                "--pipeline-name", {"Ref": "AWS::StackName"},
+                                "--input-file-ext m4a",
+                                "--poll-timeout 300",
+                                "--verbose", "\""
+                            ]
                         ]}
                     ]
                 ]}}
             },
-            "DependsOn": "PipelineWorkerIGW"
+            "DependsOn": ["PipelineWorkerIGW"]
         },
         "TranscodeWorkerAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",

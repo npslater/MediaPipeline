@@ -140,7 +140,8 @@ module MediaPipeline
                                                                                           'TranscodeQueueName' => config['sqs']['transcode_queue'],
                                                                                           'ID3TagQueueName' => config['sqs']['id3tag_queue'],
                                                                                           'TranscodeTopicName' => config['sns']['transcode_topic_name'],
-                                                                                          'AutoscaleTranscodeQueueLength' => config['autoscale']['transcode_queue_length']
+                                                                                          'AutoScaleTranscodeQueueLength' => config['autoscale']['transcode_queue_length'].to_s,
+                                                                                          'KeyName' => options[:key_name]
                                                                                       }),logger:logger)
       stack = builder.create_stack
       role_arn = stack.outputs.select {|output| output.key.eql?('TranscoderRole')}.first.value
