@@ -41,7 +41,8 @@ module MediaPipeline
       while not finished
         sleep 5
         finished = (FINISHED_STATES.select { | status| stack.status.eql?(status) }).count > 0
-        @logger.info(self.class) { MediaPipeline::LogMessage.new('pipeline.create_stack', {events:process_events(stack.events)}, 'Creating CloudFormation stack').to_s}
+        events = process_events(stack.events)
+        @logger.info(self.class) { MediaPipeline::LogMessage.new('pipeline.create_stack', {events:events}, 'Creating CloudFormation stack').to_s} unless events.count < 1
       end
       stack
     end

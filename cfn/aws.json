@@ -269,6 +269,12 @@
                 ]
             }
         },
+        "LogStream": {
+            "Type": "AWS::Kinesis::Stream",
+            "Properties": {
+                "ShardCount": 1
+            }
+        },
         "TranscoderRole": {
             "Type": "AWS::IAM::Role",
             "Properties": {
@@ -416,6 +422,18 @@
                                     ],
                                     "Sid": "7",
                                     "Effect": "Allow"
+                                },
+                                {
+                                    "Resource": {"Fn::Join": ["", ["arn:aws:kinesis:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"}, ":", {"Ref": "LogStream"}]]},
+                                    "Action": [
+                                        "kinesis:DescribeStream",
+                                        "kinesis:PutRecord",
+                                        "kinesis:GetShardIterator",
+                                        "kinesis:ListStreams",
+                                        "kinesis:GetRecords"
+                                    ],
+                                    "Sid": "8",
+                                    "Effect": "Allow"
                                 }
                             ],
                             "Version": "2008-10-17"
@@ -443,7 +461,7 @@
         "PipelineWorkerSubnet": {
             "Type": "AWS::EC2::Subnet",
             "Properties": {
-                "AvailabilityZone": "us-west-2b",
+                "AvailabilityZone": {"Fn::Select": [0, {"Fn::GetAZs": {"Ref": "AWS::Region"}}]},
                 "CidrBlock": "10.0.0.0/24",
                 "VpcId": { "Ref": "PipelineWorkerVPC"},
                 "Tags": [
@@ -535,9 +553,9 @@
                         "tar xvzf rarlinux-x64-5.1.0.tar.gz", "\n",
                         "cp rar/rar /usr/bin", "\n",
                         "cp rar/unrar /usr/bin", "\n",
-                        "mkdir -p /tmp/mediapipeline/archive", "\n",
-                        "mkdir -p /tmp/mediapipeline/download", "\n",
-                        "mkdir -p /tmp/mediapipeline/cover_art", "\n",
+                        "su - ubuntu -c \"mkdir -p /tmp/mediapipeline/archive\"", "\n",
+                        "su - ubuntu -c \"mkdir -p /tmp/mediapipeline/download\"", "\n",
+                        "su - ubuntu -c \"mkdir -p /tmp/mediapipeline/cover_art\"", "\n",
                         "su - ubuntu -c \"git clone https://github.com/npslater/MediaPipeline /home/ubuntu/MediaPipeline\"", "\n",
                         "su - ubuntu -c \"cd /home/ubuntu/MediaPipeline; bundle install\"", "\n",
                         "su - ubuntu -c \"cd /home/ubuntu/MediaPipeline; rake install\"", "\n",
@@ -562,8 +580,14 @@
                                 "--config /home/ubuntu/.mediapipeline/config",
                                 "--pipeline-name", {"Ref": "AWS::StackName"},
                                 "--input-file-ext m4a",
-                                "--poll-timeout 300",
-                                "--verbose", "\""
+                                "--poll-timeout 3600",
+                                "--verbose",
+                                "|",
+                                "logreader stream",
+                                "--pipeline-name", {"Ref": "AWS::StackName"},
+                                "--stream-name", {"Ref": "LogStream"},
+                                "--region", {"Ref": "AWS::Region"},
+                                "\""
                             ]
                         ]}
                     ]
@@ -574,7 +598,7 @@
         "TranscodeWorkerAutoscalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": ["us-west-2b"],
+                "AvailabilityZones": [{"Fn::Select": [0, {"Fn::GetAZs": {"Ref": "AWS::Region"}}]}],
                 "VPCZoneIdentifier": [{"Ref": "PipelineWorkerSubnet"}],
                 "Tags": [
                     {"Key": "Name", "Value": {"Fn::Join": ["-", ["transcode-worker",{"Ref": "AWS::StackName"}]]}, "PropagateAtLaunch": "true"}

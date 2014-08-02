@@ -7,7 +7,7 @@ mediapipeline-dev:
     rar_path: /usr/bin/rar
     key_name: id_ec2launch
   aws:
-    region: us-west-2
+    region: us-east-1
   autoscale:
     transcode_queue_length: 2
   s3:
@@ -31,6 +31,8 @@ mediapipeline-dev:
     output_file_ext: mp3
   sns:
     transcode_topic_name: transcoder_dev
+  kinesis:
+    stream_name: pipeline-log-dev
   schedule:
     hours_in_day: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
 mediapipeline-test:
@@ -41,7 +43,7 @@ mediapipeline-test:
     rar_path: /usr/bin/rar
     key_name: id_ec2launch
   aws:
-    region: us-west-2
+    region: us-east-1
   autoscale:
       transcode_queue_length: 2
   s3:
