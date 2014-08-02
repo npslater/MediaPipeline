@@ -27,6 +27,6 @@ pipeline_name:
     preset_id: 1351620000001-300010
     output_file_ext: mp3
   sns:
-    transcode_topic_name: transcoder_topic_name
+    transcode_topic: transcoder_topic
   schedule:
     hours_in_day: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]

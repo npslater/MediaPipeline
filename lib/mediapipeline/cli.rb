@@ -139,7 +139,7 @@ module MediaPipeline
                                                                                           'DDBProcessingStatsTable' => config['db']['stats_table'],
                                                                                           'TranscodeQueueName' => config['sqs']['transcode_queue'],
                                                                                           'ID3TagQueueName' => config['sqs']['id3tag_queue'],
-                                                                                          'TranscodeTopicName' => config['sns']['transcode_topic_name'],
+                                                                                          'TranscodeTopicName' => config['sns']['transcode_topic'],
                                                                                           'AutoScaleTranscodeQueueLength' => config['autoscale']['transcode_queue_length'].to_s,
                                                                                           'KeyName' => options[:key_name]
                                                                                       }),logger:logger)
