@@ -2,4 +2,4 @@
 
 require 'mediapipeline'
 
-MediaPipeline::LogReader.start(ARGV)
+MediaPipeline::LogReaderCLI.start(ARGV)

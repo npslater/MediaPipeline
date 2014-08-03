@@ -6,6 +6,8 @@ mediapipeline-dev:
     media_files_dir: /Users/nslater/Music/sample
     rar_path: /usr/bin/rar
     key_name: id_ec2launch
+    buffer_dir: /tmp/mediapipeline/log
+    sample_log_file_name: sample.log
   aws:
     region: us-east-1
   autoscale:
@@ -32,7 +34,7 @@ mediapipeline-dev:
   sns:
     transcode_topic_name: transcoder_dev
   kinesis:
-    stream_name: pipeline-log-dev
+    stream_name: mediapipeline-dev-LogStream-1W2RLCL9240MM
   schedule:
     hours_in_day: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
 mediapipeline-test:
@@ -66,37 +68,6 @@ mediapipeline-test:
     preset_id: 1351620000001-300010
     output_file_ext: mp3
   sns:
-    transcode_topic_name: transcoder_test
+    transcode_topic: transcoder_test
   schedule:
     hours_in_day: -[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
-mediapipeline-prod:
-  local:
-    archive_dir: /Users/slatern/temp/archive
-    cover_art_dir: /Users/slatern/temp/cover_art
-    media_files_dir: /Users/slatern/Music/m4a
-    rar_path: /usr/local/bin/rar
-  aws:
-    region: us-west-2
-  s3:
-    bucket: nslater-media-pipeline
-    archive_prefix: archive/
-    transcode_input_prefix: input/
-    transcode_output_prefix: output/
-    cover_art_prefix: cover_art/
-    tagged_output_prefix: tagged/
-    concurrent_connections: 2
-  db:
-    file_table: media_file
-    archive_table: media_archive
-    stats_table: media_processing_stats
-  sqs:
-    transcode_queue: transcode
-    id3tag_queue: id3tag
-    cloudplayer_upload_queue: cloudplayer
-  transcoder:
-     preset_id: 1351620000001-300010
-     output_file_ext: mp3
-  sns:
-    transcode_topic_name: transcoder
-  schedule:
-      hours_in_day: -[22,23,0,1,2,3,4]
