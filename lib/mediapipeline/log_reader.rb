@@ -40,7 +40,6 @@ module MediaPipeline
             rescue => e
               stderr.puts("Error writing buffered messages to stream: #{e.message}")
               unprocessed.push line
-              raise e
             end
           end
         end
