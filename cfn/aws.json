@@ -16,7 +16,7 @@
             "Type": "String"
         },
         "S3CoverArtPrefix": {
-            "Type":"String"
+            "Type": "String"
         },
         "DDBFileTable": {
             "Type": "String"
@@ -39,6 +39,9 @@
         "AutoScaleTranscodeQueueLength": {
             "Type": "Number"
         },
+        "InputFileExtension": {
+            "Type": "String"
+        },
         "KeyName": {
             "Type": "String"
         }
@@ -47,10 +50,6 @@
         "RegionMap": {
             "us-east-1": {"image": "ami-864d84ee"},
             "us-west-2": {"image": "ami-e7b8c0d7"}
-        },
-        "Region2AZ" : {
-            "us-west-2" : { "AZ" : ["us-west-2a", "us-west-2b", "us-west-2c"] },
-            "us-east-1" : { "AZ" : ["us-east-1a", "us-east-1b", "us-east-1c"] }
         }
     },
     "Resources": {
@@ -461,8 +460,8 @@
         "PipelineWorkerSubnet": {
             "Type": "AWS::EC2::Subnet",
             "Properties": {
-                "AvailabilityZone": {"Fn::Select": [0, {"Fn::GetAZs": {"Ref": "AWS::Region"}}]},
                 "CidrBlock": "10.0.0.0/24",
+                "AvailabilityZone": {"Fn::Select" : [0, {"Fn::GetAZs": {"Ref": "AWS::Region"}}]},
                 "VpcId": { "Ref": "PipelineWorkerVPC"},
                 "Tags": [
                     {"Key": "Name", "Value": {"Ref": "AWS::StackName"}}
@@ -526,7 +525,7 @@
                 "VpcId": {"Ref": "PipelineWorkerVPC"}
             }
         },
-        "TranscodeWorkerLaunchConfig": {
+        "PipelineWorkerLaunchConfig": {
             "Type": "AWS::AutoScaling::LaunchConfiguration",
             "Properties": {
                 "AssociatePublicIpAddress": "true",
@@ -579,7 +578,21 @@
                                 "su - ubuntu -c \"mediapipeline transcode",
                                 "--config /home/ubuntu/.mediapipeline/config",
                                 "--pipeline-name", {"Ref": "AWS::StackName"},
-                                "--input-file-ext m4a",
+                                "--input-file-ext", {"Ref": "InputFileExtension"},
+                                "--poll-timeout 3600",
+                                "--verbose",
+                                "|",
+                                "logreader stream",
+                                "--pipeline-name", {"Ref": "AWS::StackName"},
+                                "--stream-name", {"Ref": "LogStream"},
+                                "--region", {"Ref": "AWS::Region"},
+                                "\""
+                            ]
+                        ]},
+                        {"Fn::Join": [" ", [
+                                "su - ubuntu -c \"mediapipeline process-output",
+                                "--config /home/ubuntu/.mediapipeline/config",
+                                "--pipeline-name", {"Ref": "AWS::StackName"},
                                 "--poll-timeout 3600",
                                 "--verbose",
                                 "|",
@@ -595,17 +608,71 @@
             },
             "DependsOn": ["PipelineWorkerIGW"]
         },
-        "TranscodeWorkerAutoscalingGroup": {
+        "PipelineWorkerAutoScalingGroup": {
             "Type": "AWS::AutoScaling::AutoScalingGroup",
             "Properties": {
-                "AvailabilityZones": [{"Fn::Select": [0, {"Fn::GetAZs": {"Ref": "AWS::Region"}}]}],
+                "AvailabilityZones": [{"Fn::Select" : [0, {"Fn::GetAZs": {"Ref": "AWS::Region"}}]}],
                 "VPCZoneIdentifier": [{"Ref": "PipelineWorkerSubnet"}],
                 "Tags": [
-                    {"Key": "Name", "Value": {"Fn::Join": ["-", ["transcode-worker",{"Ref": "AWS::StackName"}]]}, "PropagateAtLaunch": "true"}
+                    {"Key": "Name", "Value": {"Fn::Join": ["-", ["pipeline-worker",{"Ref": "AWS::StackName"}]]}, "PropagateAtLaunch": "true"}
                 ],
                 "MaxSize":1,
-                "MinSize":1,
-                "LaunchConfigurationName": {"Ref": "TranscodeWorkerLaunchConfig"}
+                "MinSize":0,
+                "LaunchConfigurationName": {"Ref": "PipelineWorkerLaunchConfig"}
+            }
+        },
+        "PipelineWorkerScaleUpPolicy": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Properties": {
+                "AdjustmentType": "ChangeInCapacity",
+                "AutoScalingGroupName": {"Ref": "PipelineWorkerAutoScalingGroup"},
+                "Cooldown": "3600",
+                "ScalingAdjustment": "1"
+            }
+        },
+        "PipelineWorkerScaleDownPolicy": {
+            "Type": "AWS::AutoScaling::ScalingPolicy",
+            "Properties": {
+                "AdjustmentType": "ChangeInCapacity",
+                "AutoScalingGroupName": {"Ref": "PipelineWorkerAutoScalingGroup"},
+                "Cooldown": "3600",
+                "ScalingAdjustment": "-1"
+            }
+        },
+        "PipelineWorkerScaleUpAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "AlarmName": "PipelineWorkerScaleUp",
+                "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+                "Dimensions": [{
+                    "Name": "QueueName",
+                    "Value": {"Fn::GetAtt": ["TranscodeQueue", "QueueName"]}
+                }],
+                "EvaluationPeriods": "1",
+                "MetricName": "ApproximateNumberOfMessagesVisible",
+                "Namespace": "AWS/SQS",
+                "Period": "300",
+                "Statistic": "Average",
+                "Threshold": {"Ref": "AutoScaleTranscodeQueueLength"},
+                "AlarmActions": [{"Ref": "PipelineWorkerScaleUpPolicy"}]
+            }
+        },
+        "PipelineWorkerScaleDownAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "AlarmName": "PipelineWorkerScaleDown",
+                "ComparisonOperator": "LessThanThreshold",
+                "Dimensions": [{
+                    "Name": "QueueName",
+                    "Value": {"Fn::GetAtt": ["TranscodeQueue", "QueueName"]}
+                }],
+                "EvaluationPeriods": "5",
+                "MetricName": "ApproximateNumberOfMessagesVisible",
+                "Namespace": "AWS/SQS",
+                "Period": "300",
+                "Statistic": "Average",
+                "Threshold": "1",
+                "AlarmActions": [{"Ref": "PipelineWorkerScaleDownPolicy"}]
             }
         }
     },

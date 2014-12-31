@@ -35,7 +35,8 @@ module MediaPipeline
     def create_stack
       @context.cfn.stacks.create(@context.name,
                                  @context.templateUrl? ? @context.template : File.read(@context.template),
-                                 :parameters => @context.params)
+                                 :parameters => @context.params,
+                                 :capabilities => ['CAPABILITY_IAM'])
       stack = @context.cfn.stacks[@context.name]
       finished = false
       while not finished

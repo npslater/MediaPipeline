@@ -113,6 +113,7 @@ module MediaPipeline
     option :verbose, :required=>false, :type=>:boolean, :desc=>'Verbose logging'
     option :template, :required=>true, :banner=>'CFN_TEMPLATE', :desc=>'The path or URL to the CFN template'
     option :key_name, :required=>true, :desc=>'The name of the EC2 key pair to use when launching worker instances'
+    option :input_file_ext, :required=>true, :desc=>'The file type that will be processed by the pipeline'
     long_desc <<-LONGDESC
       Creates all the AWS resources required for the media pipeline.  Most resources are created using CloudFormation.
 
@@ -141,6 +142,7 @@ module MediaPipeline
                                                                                           'ID3TagQueueName' => config['sqs']['id3tag_queue'],
                                                                                           'TranscodeTopicName' => config['sns']['transcode_topic'],
                                                                                           'AutoScaleTranscodeQueueLength' => config['autoscale']['transcode_queue_length'].to_s,
+                                                                                          'InputFileExtension' => options[:input_file_ext],
                                                                                           'KeyName' => options[:key_name]
                                                                                       }),logger:logger)
       stack = builder.create_stack

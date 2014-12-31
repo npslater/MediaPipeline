@@ -22,6 +22,7 @@ describe MediaPipeline::PipelineBuilder do
                       'ID3TagQueueName' => "#{prefix}-#{config['sqs']['id3tag_queue']}-#{suffix}",
                       'TranscodeTopicName' => "#{prefix}-#{config['sns']['transcode_topic_name']}-#{suffix}",
                       'AutoScaleTranscodeQueueLength' => config['autoscale']['transcode_queue_length'].to_s,
+                      'InputFileExtension' => 'm4a',
                       'KeyName' => config['local']['key_name']
                   }))
 

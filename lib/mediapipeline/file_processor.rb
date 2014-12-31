@@ -63,6 +63,11 @@ module MediaPipeline
         end
         message = @data_access.queue_transcode_task(directory)
         @logger.info(self.class) { LogMessage.new('data_access.queue_transcode_task', {message:message}, 'Queued transcode task to SQS').to_s}
+
+        #clean up local archives
+        parts.each do | part |
+          File.delete(part)
+        end
       end
       @logger.info(self.class) {LogMessage.new('process_files.end', {directory:directory, files:archive.files, num_files:archive.files.count}, 'Ending file processing').to_s }
     end
