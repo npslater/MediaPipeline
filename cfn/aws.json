@@ -543,6 +543,7 @@
                 "UserData": {"Fn::Base64": {"Fn::Join": ["",
                     [
                         "#!/bin/bash -ex", "\n",
+                        "su - ubuntu -c \"gpg --keyserver hkp://keys.gnupg.net --recv-keys D39DC0E3\"", "\n",
                         "su - ubuntu -c \"curl -sSL https://get.rvm.io | bash -s stable\"", "\n",
                         "su - ubuntu -c \"source /home/ubuntu/.rvm/scripts/rvm\"", "\n",
                         "su - ubuntu -c \"rvm install 2.1\"", "\n",
