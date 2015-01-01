@@ -69,6 +69,7 @@ module MediaPipeline
           File.delete(part)
         end
       end
+
       @logger.info(self.class) {LogMessage.new('process_files.end', {directory:directory, files:archive.files, num_files:archive.files.count}, 'Ending file processing').to_s }
     end
   end

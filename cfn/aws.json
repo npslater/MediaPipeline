@@ -581,12 +581,12 @@
                                 "--pipeline-name", {"Ref": "AWS::StackName"},
                                 "--input-file-ext", {"Ref": "InputFileExtension"},
                                 "--poll-timeout 3600",
-                                "--verbose",
                                 "|",
                                 "logreader stream",
-                                "--pipeline-name", {"Ref": "AWS::StackName"},
+                                "--command-name", "transcode",
                                 "--stream-name", {"Ref": "LogStream"},
                                 "--region", {"Ref": "AWS::Region"},
+                                "--buffer-dir /tmp",
                                 "\""
                             ]
                         ]},
@@ -595,12 +595,12 @@
                                 "--config /home/ubuntu/.mediapipeline/config",
                                 "--pipeline-name", {"Ref": "AWS::StackName"},
                                 "--poll-timeout 3600",
-                                "--verbose",
                                 "|",
                                 "logreader stream",
-                                "--pipeline-name", {"Ref": "AWS::StackName"},
+                                "--command-name", "process-output",
                                 "--stream-name", {"Ref": "LogStream"},
                                 "--region", {"Ref": "AWS::Region"},
+                                "--buffer-dir /tmp",
                                 "\""
                             ]
                         ]}
@@ -636,7 +636,6 @@
             "Properties": {
                 "AdjustmentType": "ChangeInCapacity",
                 "AutoScalingGroupName": {"Ref": "PipelineWorkerAutoScalingGroup"},
-                "Cooldown": "3600",
                 "ScalingAdjustment": "-1"
             }
         },
@@ -667,7 +666,7 @@
                     "Name": "QueueName",
                     "Value": {"Fn::GetAtt": ["TranscodeQueue", "QueueName"]}
                 }],
-                "EvaluationPeriods": "5",
+                "EvaluationPeriods": "6",
                 "MetricName": "ApproximateNumberOfMessagesVisible",
                 "Namespace": "AWS/SQS",
                 "Period": "300",
